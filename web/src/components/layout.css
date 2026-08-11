@@ -1,0 +1,234 @@
+/* ===========================================================================
+   Rahmen der App: Kopfzeile, Navigation, Tab-Leiste, Seitenkopf
+   Mobile-first – die Desktop-Regeln stehen am Ende in der Media-Query.
+   =========================================================================== */
+
+.app {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+/* ── Kopfzeile ──────────────────────────────────────────────────────────── */
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: var(--navy);
+  color: var(--white);
+  /* Bereich hinter der Statusleiste auf iPhones mit Notch mit einfärben */
+  padding-top: env(safe-area-inset-top);
+  box-shadow: var(--shadow);
+}
+
+.app-header__inner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: var(--header-height);
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 12px;
+}
+
+.app-header__brand {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+.app-header__brand:hover { text-decoration: none; }
+
+/* Weiße Fläche unter dem Logo: Das Logo enthält dunkelblaue Elemente, die auf
+   dem navyfarbenen Header sonst nicht zu erkennen wären. */
+.app-header__logo {
+  display: flex;
+  align-items: center;
+  background: var(--white);
+  border-radius: var(--radius-sm);
+  padding: 5px 9px;
+}
+.app-header__logo img {
+  height: 26px;
+  width: auto;
+  display: block;
+}
+
+.app-nav {
+  display: none;
+  gap: 4px;
+  margin-left: 8px;
+}
+
+.app-nav__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 14px;
+  border-radius: var(--radius);
+  color: rgba(255, 255, 255, 0.82);
+  font-weight: 600;
+  font-size: 0.9375rem;
+  text-decoration: none;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.app-nav__link:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--white);
+  text-decoration: none;
+}
+/* Aktiver Punkt in der Akzentfarbe des Logos */
+.app-nav__link.is-active {
+  background: rgba(79, 195, 247, 0.18);
+  color: var(--accent);
+}
+
+.app-header__user {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.app-header__profile {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: var(--radius);
+  color: var(--white);
+  text-decoration: none;
+}
+.app-header__profile:hover {
+  background: rgba(255, 255, 255, 0.1);
+  text-decoration: none;
+}
+
+.app-header__name {
+  display: none;
+  font-weight: 600;
+  font-size: 0.875rem;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.app-header__role {
+  display: none;
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(79, 195, 247, 0.2);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--white);
+  cursor: pointer;
+}
+.icon-btn:hover { background: rgba(255, 255, 255, 0.12); }
+
+/* Nur für Screenreader sichtbar */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── Inhaltsbereich ─────────────────────────────────────────────────────── */
+.app-main {
+  flex: 1;
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 16px 12px;
+  /* Platz für die Tab-Leiste am unteren Rand freihalten */
+  padding-bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom) + 16px);
+}
+
+/* ── Tab-Leiste (Smartphone) ────────────────────────────────────────────── */
+.tabbar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 40;
+  display: flex;
+  background: var(--white);
+  border-top: 1px solid var(--border);
+  padding-bottom: env(safe-area-inset-bottom);
+  box-shadow: 0 -2px 12px rgba(20, 33, 61, 0.08);
+}
+
+.tabbar__item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  height: var(--tabbar-height);
+  color: var(--text-muted);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-decoration: none;
+  /* großzügige Trefferfläche für den Daumen */
+  -webkit-tap-highlight-color: transparent;
+}
+.tabbar__item:hover { text-decoration: none; }
+.tabbar__item.is-active { color: var(--navy); }
+.tabbar__item.is-active svg { color: var(--accent-600); }
+
+/* ── Seitenkopf ─────────────────────────────────────────────────────────── */
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.page-header__actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* ── Ab Tablet/Desktop ──────────────────────────────────────────────────── */
+@media (min-width: 900px) {
+  :root { --header-height: 64px; }
+
+  .app-header__inner { padding: 0 20px; }
+  .app-header__logo img { height: 30px; }
+  .app-nav { display: flex; }
+  .app-header__name,
+  .app-header__role { display: inline-block; }
+
+  .app-main {
+    padding: 24px 20px;
+    padding-bottom: 40px;
+  }
+
+  /* Auf dem Desktop übernimmt die Kopfzeile die Navigation */
+  .tabbar { display: none; }
+}

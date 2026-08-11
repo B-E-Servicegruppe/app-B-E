@@ -1,0 +1,87 @@
+/* Anmeldebildschirm – Logo zentriert auf navyfarbenem Hintergrund */
+
+.login {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 24px 16px calc(24px + env(safe-area-inset-bottom));
+  /* Farbverlauf aus den beiden Logofarben */
+  background: linear-gradient(160deg, var(--navy) 0%, #1b3157 55%, #0f7ba8 100%);
+}
+
+.login__card {
+  width: 100%;
+  max-width: 420px;
+  padding: 28px 22px 24px;
+  background: var(--white);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+}
+
+.login__logo {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 22px;
+}
+
+.login__logo img {
+  width: 100%;
+  max-width: 260px;
+  height: auto;
+}
+
+.login__title {
+  text-align: center;
+  font-size: 1.375rem;
+  margin-bottom: 2px;
+}
+
+.login__subtitle {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.9375rem;
+  margin-bottom: 22px;
+}
+
+/* Eingabefeld mit vorangestelltem Symbol */
+.input-with-icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.input-with-icon svg {
+  position: absolute;
+  left: 12px;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+.input-with-icon .input { padding-left: 40px; }
+
+.login__links {
+  margin-top: 16px;
+  text-align: center;
+  font-size: 0.9375rem;
+}
+
+.login__hint {
+  margin: 18px 0 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+}
+
+.login__footer {
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 0.8125rem;
+  margin: 0;
+}
+
+@media (min-width: 900px) {
+  .login__card { padding: 34px 32px 28px; }
+}

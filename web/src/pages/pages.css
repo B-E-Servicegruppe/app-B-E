@@ -1,0 +1,536 @@
+/* ===========================================================================
+   Gemeinsame Bausteine der Seiten:
+   Kennzahlen, Filterleiste, Formulare, Detailansicht, Checklisten, Fotos
+   =========================================================================== */
+
+.section { margin-top: 22px; }
+
+.section__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+/* ── Kennzahlen auf der Übersicht ───────────────────────────────────────── */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 14px;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.stat-card:hover {
+  text-decoration: none;
+  border-color: var(--accent);
+  box-shadow: var(--shadow);
+}
+
+.stat-card__icon { margin-bottom: 4px; }
+
+.stat-card__value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--navy);
+}
+
+.stat-card__label {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+/* ── Filterleiste ───────────────────────────────────────────────────────── */
+.filter-bar {
+  padding: 12px;
+  margin-bottom: 16px;
+}
+
+.filter-bar__search {
+  position: relative;
+  display: flex;
+  gap: 8px;
+}
+
+.filter-bar__search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+.filter-bar__search .input { padding-left: 40px; }
+
+.filter-bar__toggle {
+  position: relative;
+  flex-shrink: 0;
+}
+.filter-bar__toggle.is-active {
+  border-color: var(--accent);
+  color: var(--accent-600);
+}
+
+.filter-bar__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--accent-600);
+  color: var(--white);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.filter-bar__fields {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.filter-bar__fields .field { margin-bottom: 0; }
+
+/* ── Tabs (Meine Aufträge) ──────────────────────────────────────────────── */
+.tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  margin-bottom: 16px;
+  background: var(--navy-100);
+  border-radius: var(--radius);
+}
+
+.tabs__item {
+  flex: 1;
+  min-height: 40px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--navy);
+  font-weight: 600;
+  /* etwas kleiner + kein Umbruch: "Diese Woche" passt so auch auf
+     schmale Displays in eine Zeile */
+  font-size: 0.875rem;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.tabs__item.is-active {
+  background: var(--white);
+  color: var(--navy);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ── Formulare ──────────────────────────────────────────────────────────── */
+.form-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.form-actions {
+  display: flex;
+  gap: 10px;
+  position: sticky;
+  bottom: calc(var(--tabbar-height) + env(safe-area-inset-bottom));
+  padding: 12px 0;
+  background: linear-gradient(to top, var(--bg) 70%, transparent);
+}
+.form-actions .btn { flex: 1; }
+
+/* Materialzeilen */
+.material-row {
+  display: grid;
+  grid-template-columns: 1fr 92px 42px;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.material-row__qty { text-align: center; }
+
+/* Doppelte Klasse: setzt sich zuverlässig gegen .icon-btn (layout.css) durch */
+.icon-btn.icon-btn--muted {
+  background: var(--navy-050);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.icon-btn.icon-btn--muted:hover {
+  background: var(--danger-bg);
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+/* Auswahl mit Häkchen (Mitarbeiterzuweisung) */
+.check-list {
+  display: grid;
+  gap: 6px;
+}
+
+.check-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: var(--touch-target);
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--white);
+  cursor: pointer;
+  font-weight: 500;
+}
+.check-item:hover { border-color: var(--accent); }
+.check-item input[type='checkbox'] {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--accent-600);
+  flex-shrink: 0;
+}
+.check-item:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--accent-100);
+}
+
+/* ── Detailansicht ──────────────────────────────────────────────────────── */
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 12px;
+  padding: 6px 10px 6px 4px;
+  border: none;
+  background: transparent;
+  color: var(--accent-600);
+  font-weight: 600;
+  font-size: 0.9375rem;
+  cursor: pointer;
+}
+
+.detail-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.detail-row {
+  display: grid;
+  /* Beschriftungsspalte darf mitwachsen, damit lange Wörter wie
+     "Ansprechpartner" nicht in den Wert hineinlaufen. */
+  grid-template-columns: minmax(90px, max-content) 1fr;
+  gap: 14px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  align-items: start;
+}
+.detail-row:last-child { border-bottom: none; }
+.detail-row:first-child { padding-top: 0; }
+
+.detail-row__label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.detail-row__action {
+  display: inline-block;
+  margin-top: 4px;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.notes {
+  margin: 0;
+  white-space: pre-wrap;
+  line-height: 1.6;
+}
+
+/* Großer Statusbutton – daumenfreundlich.
+   Doppelte Klasse, damit die Höhe unabhängig von der Reihenfolge der
+   Stylesheets sicher gegenüber der Grundregel .btn gewinnt. */
+.btn.status-btn {
+  min-height: 54px;
+  font-size: 1.0625rem;
+}
+
+/* Checkliste Material */
+.checklist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.checklist__item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 50px;
+  padding: 8px 4px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+.checklist li:last-child .checklist__item { border-bottom: none; }
+
+.checklist__item input[type='checkbox'] {
+  width: 24px;
+  height: 24px;
+  accent-color: var(--accent-600);
+  flex-shrink: 0;
+}
+
+.checklist__item .is-done {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
+/* Dateiliste */
+.file-list {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+}
+
+.file-list__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.9375rem;
+  min-width: 0;
+}
+.file-list__item:last-child { border-bottom: none; }
+.file-list__item a {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Fotoraster */
+.photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.photo-grid__item {
+  display: block;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--navy-050);
+}
+.photo-grid__item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.photo-grid__file {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 100%;
+  padding: 8px;
+  font-size: 0.6875rem;
+  text-align: center;
+  color: var(--text-muted);
+  overflow: hidden;
+}
+
+.photo-actions {
+  display: grid;
+  gap: 8px;
+}
+
+/* Kommentare */
+.comment-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.comment {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.comment:last-child { border-bottom: none; }
+
+.comment__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+  font-size: 0.875rem;
+}
+
+.comment__role {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--accent-100);
+  color: #0b4f6c;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.comment__body {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+/* Verlauf */
+.timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.timeline__item {
+  display: flex;
+  gap: 10px;
+  padding: 8px 0;
+  font-size: 0.9375rem;
+}
+
+.timeline__dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  margin-top: 5px;
+  flex-shrink: 0;
+}
+
+/* ── Mitarbeiterverwaltung ──────────────────────────────────────────────── */
+.user-list {
+  display: grid;
+  gap: 10px;
+}
+
+.user-card.is-inactive { opacity: 0.72; }
+
+.user-card__top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.user-card__avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--navy-100);
+  color: var(--navy);
+  flex-shrink: 0;
+}
+
+.user-card__identity {
+  min-width: 0;
+  flex: 1;
+}
+.user-card__identity h3 {
+  font-size: 1rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-card__meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.user-card__actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+/* Einmalige Anzeige des Startpassworts */
+.password-reveal {
+  margin: 14px 0;
+  padding: 16px;
+  border: 2px dashed var(--accent);
+  border-radius: var(--radius);
+  background: var(--accent-100);
+  text-align: center;
+  font-family: 'SFMono-Regular', Menlo, Consolas, monospace;
+  font-size: 1.375rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--navy);
+  user-select: all;
+  word-break: break-all;
+}
+
+/* ── Ab Tablet/Desktop ──────────────────────────────────────────────────── */
+@media (min-width: 700px) {
+  .stat-grid { grid-template-columns: repeat(4, 1fr); }
+  .filter-bar__fields { grid-template-columns: repeat(3, 1fr); }
+  .user-list { grid-template-columns: 1fr 1fr; }
+}
+
+@media (min-width: 900px) {
+  .form-grid { max-width: 760px; }
+  .form-actions {
+    position: static;
+    justify-content: flex-end;
+    background: none;
+    padding: 4px 0 0;
+  }
+  .form-actions .btn { flex: 0 0 auto; min-width: 160px; }
+
+  /* Detailansicht zweispaltig: Inhalt + Verlauf */
+  .detail-grid { grid-template-columns: minmax(0, 1fr) 320px; align-items: start; }
+
+  .photo-actions { grid-template-columns: 1fr 1fr; }
+}
+
+@media (min-width: 1100px) {
+  .user-list { grid-template-columns: repeat(3, 1fr); }
+}

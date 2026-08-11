@@ -1,0 +1,265 @@
+/* ===========================================================================
+   Dienstplan – Kalender in Wochen- und Monatsansicht
+   Mobile: einspaltige Liste der Tage (gut scrollbar)
+   Desktop: echtes Kalendergitter mit 7 Spalten
+   =========================================================================== */
+
+.schedule-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.schedule-toolbar__nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.schedule-toolbar__title {
+  flex: 1;
+  text-align: center;
+  color: var(--navy);
+  font-size: 0.9375rem;
+}
+
+.schedule-toolbar__options {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Doppelte Klasse: setzt sich zuverlässig gegen .select (theme.css) durch */
+.select.select--sm {
+  min-height: 38px;
+  width: auto;
+  flex: 1;
+  min-width: 140px;
+  font-size: 0.875rem;
+  padding: 6px 10px;
+}
+
+/* Umschalter Woche/Monat */
+.segmented {
+  display: flex;
+  padding: 3px;
+  border-radius: var(--radius-sm);
+  background: var(--navy-100);
+}
+
+.segmented button {
+  min-height: 32px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--navy);
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+.segmented button.is-active {
+  background: var(--white);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Legende der Farbcodierung */
+.legend {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  padding: 0 2px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.legend__dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+}
+
+/* ── Kalender ───────────────────────────────────────────────────────────── */
+.calendar__weekdays { display: none; }
+
+.calendar__grid {
+  display: grid;
+  gap: 8px;
+}
+
+.calendar__day {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  min-height: 64px;
+}
+
+/* In der Monatsansicht auf dem Handy leere Tage ausblenden – sonst entsteht
+   eine sehr lange Liste ohne Inhalt. */
+.calendar--month .calendar__day.is-outside { display: none; }
+
+.calendar__day.is-today {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-100);
+}
+
+/* Zielfläche beim Ziehen eines Eintrags */
+.calendar__day.is-drop-target {
+  border-color: var(--accent);
+  background: var(--accent-100);
+}
+
+.calendar__day-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.calendar__day-name {
+  font-weight: 700;
+  color: var(--navy);
+  font-size: 0.875rem;
+}
+
+.calendar__day-number {
+  font-weight: 700;
+  color: var(--navy);
+  font-size: 0.9375rem;
+}
+.calendar__day.is-today .calendar__day-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--accent-600);
+  color: var(--white);
+}
+
+.calendar__add {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--navy-050);
+  color: var(--navy);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.calendar__add:hover {
+  background: var(--accent-100);
+  border-color: var(--accent);
+  color: var(--accent-600);
+}
+
+.calendar__entries {
+  display: grid;
+  gap: 6px;
+}
+.calendar__entries:empty::after {
+  content: 'frei';
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+}
+
+/* Einzelner Dienstplan-Eintrag */
+.shift {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 8px 10px;
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--navy-050);
+  font-size: 0.8125rem;
+  line-height: 1.35;
+}
+.shift[role='button'] { cursor: grab; }
+.shift[role='button']:hover { background: var(--navy-100); }
+.shift[role='button']:active { cursor: grabbing; }
+
+.shift__time {
+  font-weight: 700;
+  color: var(--navy);
+}
+
+.shift__title {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shift__user {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shift__link {
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+/* ── Ab Tablet/Desktop: echtes Kalendergitter ───────────────────────────── */
+@media (min-width: 900px) {
+  .schedule-toolbar {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .schedule-toolbar__nav { flex: 0 0 auto; }
+  .schedule-toolbar__title { min-width: 240px; }
+  .select--sm { flex: 0 0 auto; }
+
+  .calendar__weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 8px;
+    margin-bottom: 6px;
+    padding: 0 4px;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-align: center;
+  }
+
+  .calendar__grid {
+    grid-template-columns: repeat(7, 1fr);
+  }
+
+  .calendar--week .calendar__day { min-height: 220px; }
+  .calendar--month .calendar__day { min-height: 120px; }
+
+  /* Im Gitter müssen Tage außerhalb des Monats sichtbar bleiben,
+     damit die Wochenzeilen vollständig sind. */
+  .calendar--month .calendar__day.is-outside {
+    display: block;
+    background: var(--navy-050);
+    opacity: 0.6;
+  }
+
+  .calendar__day { padding: 8px; }
+  .calendar__day-head { margin-bottom: 6px; }
+  .calendar__day-name { font-size: 0.75rem; }
+}

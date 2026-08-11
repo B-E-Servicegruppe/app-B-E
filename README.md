@@ -1,1 +1,288 @@
-# app-B-E
+# B&E Service Gruppe – Auftrags- und Dienstplan-App
+
+Web-App zur Verwaltung von Aufträgen, Materialbedarf, Kundenadressen und
+Dienstplan für die B&E Service Gruppe (Reinigung, Garten, Abriss, Winterdienst,
+Entrümpelung).
+
+Die App läuft im Browser auf dem Desktop **und** auf dem Smartphone
+(mobile-first). Sie lässt sich später ohne Umbau als App-Store-Version
+(iOS/Android) nachrüsten – siehe [Spätere App-Version](#spätere-app-version).
+
+---
+
+## Schnellstart (lokaler Test)
+
+Voraussetzung: **Node.js 20 oder neuer** ([nodejs.org](https://nodejs.org)).
+
+Zwei Terminalfenster öffnen:
+
+**Terminal 1 – Server (Backend):**
+
+```bash
+cd server
+npm install     # nur beim ersten Mal
+npm run seed    # nur beim ersten Mal: Testdaten anlegen
+npm start
+```
+
+**Terminal 2 – App (Frontend):**
+
+```bash
+cd web
+npm install     # nur beim ersten Mal
+npm run dev
+```
+
+Danach im Browser öffnen: **http://localhost:5173**
+
+### Testzugänge
+
+| Rolle | E-Mail | Passwort |
+| --- | --- | --- |
+| Administration | `admin@bunde-reinigungsservice.de` | `Admin1234` |
+| Administration | `partner@bunde-reinigungsservice.de` | `Admin1234` |
+| Mitarbeiter | `max@bunde-reinigungsservice.de` | `Team1234` |
+| Mitarbeiter | `anna@bunde-reinigungsservice.de` | `Team1234` |
+| Mitarbeiter | `tomasz@bunde-reinigungsservice.de` | `Team1234` |
+| Mitarbeiter | `lisa@bunde-reinigungsservice.de` | `Team1234` |
+
+> Das sind reine Testzugänge. Vor einem echten Einsatz die Passwörter über
+> **Mein Konto → Passwort ändern** bzw. die Mitarbeiterverwaltung ändern.
+
+### Auf dem Handy testen
+
+Der Entwicklungsserver ist auch im WLAN erreichbar. Beim Start von `npm run dev`
+wird eine Adresse wie `http://192.168.x.x:5173` angezeigt – diese am Smartphone
+im gleichen WLAN öffnen. Über „Zum Home-Bildschirm hinzufügen" verhält sich die
+App fast wie eine native App.
+
+### Alles unter einer Adresse (Vorschau-Modus)
+
+Für eine Vorführung reicht ein einziger Prozess:
+
+```bash
+cd web && npm run build     # erzeugt web/dist
+cd ../server && npm start   # liefert API + App aus
+```
+
+Dann ist alles unter **http://localhost:4000** erreichbar.
+
+---
+
+## Rollen und Rechte
+
+**Administration** (Geschäftsführung)
+- Vollzugriff auf alle Aufträge, alle Mitarbeiter und den gesamten Dienstplan
+- Legt Benutzerkonten an, bearbeitet und deaktiviert sie
+- Legt Aufträge an, weist zu, verteilt um, dupliziert, löscht
+
+**Mitarbeiter**
+- Sieht ausschließlich die ihm zugewiesenen Aufträge und den eigenen Dienstplan
+- Startseite nach dem Login: „Meine Aufträge"
+- Kein Zugriff auf Verwaltungsfunktionen und auf Daten anderer Mitarbeiter
+
+**Wichtig:** Diese Trennung ist serverseitig abgesichert. Das Frontend blendet
+Funktionen nur zusätzlich aus. Ein Mitarbeiter erreicht fremde Aufträge, Dateien
+oder Dienstpläne auch dann nicht, wenn er die URL oder die API direkt aufruft –
+in dem Fall antwortet der Server mit „nicht gefunden" bzw. „keine Berechtigung".
+Geprüft wird das automatisiert (siehe [Tests](#tests)).
+
+---
+
+## Funktionsumfang
+
+### Auftragsverwaltung (nur Administration)
+- Neuer Auftrag mit Kundenname, Adresse, Auftragsart (Reinigung / Garten /
+  Abriss / Winterdienst / Entrümpelung), Termin und Zeitfenster, Material-Liste
+  (beliebig viele Positionen), Notizen, Zuweisung an mehrere Mitarbeiter
+- Upload von PDFs und Bildern direkt beim Anlegen (Angebot, Grundriss, Fotos)
+- Auftragsliste mit Suche (Kunde, Adresse, Notiz, Auftragsnummer) und Filtern
+  (Status, Auftragsart, Mitarbeiter, Zeitraum)
+- Bearbeiten, Duplizieren, Löschen, Umverteilen
+- Dashboard mit Anzahl offen / in Arbeit / erledigt
+
+### Meine Aufträge (Mitarbeiter)
+- Tabs: Heute / Diese Woche / Alle
+- Detailansicht mit Adresse und Direktlink zu Google Maps, Material als
+  Checkliste zum Abhaken, Zeitfenster, Notizen, angehängte PDFs/Bilder
+- Status ändern (offen → in Arbeit → erledigt), jeder Schritt mit Zeitstempel
+  und Namen im Verlauf
+- Fotos hochladen als Abschluss-Nachweis, auf dem Smartphone direkt über die
+  Kamera
+- Kommentarfeld für Rückmeldungen an die Administration
+
+### Dienstplan
+- Kalender mit Wochen- und Monatsumschaltung
+- Administration: Einträge anlegen, bearbeiten, löschen; per Drag & Drop auf
+  andere Tage ziehen; direkt mit einem Auftrag verknüpfbar (Termin und
+  Zeitfenster werden dann übernommen)
+- Mitarbeiter: sieht ausschließlich die eigene Einteilung, ohne Bearbeitung
+- Farbliche Kennzeichnung wahlweise nach Auftragsart oder Status
+
+### Mitarbeiterverwaltung (nur Administration)
+- Liste aller Konten mit Status (aktiv / deaktiviert)
+- Neues Konto mit Name, E-Mail, Telefon, Rolle; Startpasswort wird automatisch
+  erzeugt und einmalig angezeigt
+- Bearbeiten, Passwort zurücksetzen, deaktivieren – bewusst **kein Löschen**,
+  damit die Auftragshistorie vollständig erhalten bleibt
+
+### Anmeldung
+- Login mit E-Mail und Passwort, Logo zentriert darüber
+- Keine Selbstregistrierung – Konten legt ausschließlich ein Admin an
+- Passwörter werden nur als bcrypt-Hash gespeichert, nie im Klartext
+- „Passwort vergessen" mit Reset-Link (im Testbetrieb wird der Link in der
+  Server-Konsole ausgegeben und direkt in der App angezeigt)
+
+---
+
+## Datenmodell
+
+SQLite-Datenbank, Schema mit Kommentaren:
+[`server/src/db/schema.sql`](server/src/db/schema.sql)
+
+| Tabelle | Zweck |
+| --- | --- |
+| `users` | Benutzerkonten: Name, E-Mail, Passwort-Hash, Rolle (`ADMIN`/`EMPLOYEE`), Telefon, aktiv/deaktiviert |
+| `password_reset_tokens` | Tokens für „Passwort vergessen" (nur als Hash gespeichert, mit Ablaufzeit) |
+| `orders` | Aufträge: Kunde, Adresse, Auftragsart, Status, Termin, Zeitfenster, Notizen |
+| `order_assignments` | Zuweisung Auftrag ↔ Mitarbeiter (n:m). **Grundlage der Rechteprüfung** |
+| `order_materials` | Materialpositionen je Auftrag, zugleich Checkliste (`done`) |
+| `order_files` | Hochgeladene PDFs/Bilder: `ATTACHMENT` (vom Admin) oder `PROOF_PHOTO` (Nachweis vom Mitarbeiter) |
+| `order_status_history` | Lückenlose Statushistorie: von → nach, wer, wann |
+| `order_comments` | Rückmeldungen zwischen Mitarbeiter und Administration |
+| `shifts` | Dienstplan-Einträge: Mitarbeiter, Datum, Zeitfenster, optional mit Auftrag verknüpft |
+
+Ein Auftrag kann mehreren Mitarbeitern zugewiesen sein und ein Mitarbeiter
+mehreren Aufträgen. Genau über `order_assignments` entscheidet der Server, ob
+ein Mitarbeiter einen Auftrag sehen darf.
+
+Dateien liegen als Datei unter `server/uploads/` mit einem zufälligen Namen; in
+der Datenbank stehen nur die Metadaten. Ausgeliefert werden sie ausschließlich
+über `/api/files/:id` – mit Rechteprüfung bei jedem Abruf.
+
+---
+
+## Projektstruktur
+
+```
+.
+├── assets/                  Logo (SVG + JPG)
+├── server/                  Backend (Node.js + Express + SQLite)
+│   ├── src/
+│   │   ├── config.js        Konfiguration (Port, Secrets, Pfade)
+│   │   ├── index.js         Serverstart und Routen-Einbindung
+│   │   ├── db/              Datenbankverbindung, Schema, Testdaten
+│   │   ├── lib/             Sicherheit (Hashing/JWT), HTTP-Helfer, E-Mail
+│   │   ├── middleware/      Anmeldung und Rechte, Uploads, Fehlerbehandlung
+│   │   └── routes/          auth, orders, shifts, users, files
+│   ├── test/                automatischer API- und Sicherheitstest
+│   ├── data/                SQLite-Datei (wird automatisch angelegt)
+│   └── uploads/             hochgeladene PDFs und Bilder
+└── web/                     Frontend (React + Vite + TypeScript)
+    ├── public/              Logo für Browser-Tab und App
+    └── src/
+        ├── api/             Zugriff auf die REST-API + Datentypen
+        ├── auth/            Anmeldezustand (Kontext)
+        ├── components/      Layout, Icons, Dialoge, Auftragskachel
+        ├── pages/           die einzelnen Bildschirme
+        ├── styles/          Farben und Grundgestaltung
+        └── utils/           Datum, Beschriftungen, Maps-Link
+```
+
+---
+
+## Design
+
+Farben aus dem Logo, zentral gepflegt in
+[`web/src/styles/theme.css`](web/src/styles/theme.css):
+
+| Farbe | Wert | Verwendung |
+| --- | --- | --- |
+| Dunkelblau/Navy | `#14213D` | Kopfzeile, Navigation, primäre Buttons |
+| Hellblau | `#4FC3F7` | Akzente, aktive Zustände, Links, Status „offen" |
+| Weiß | `#FFFFFF` | Hintergrund der Inhaltsflächen |
+
+Das Logo steht zentriert auf dem Login-Screen und in der Kopfzeile jeder Seite.
+In der Kopfzeile liegt es auf einer weißen Fläche, weil seine dunkelblauen
+Anteile auf navyfarbenem Grund sonst nicht erkennbar wären.
+
+Jeder Status hat ein eigenes Icon und eine eigene Farbe (offen, in Arbeit,
+erledigt, storniert), jede Auftragsart eine eigene Farbe – identisch in Listen,
+Detailansicht und Dienstplan.
+
+**Mobile-first:** Auf dem Smartphone gibt es unten eine Tab-Leiste im
+Daumenbereich, Dialoge öffnen als Blatt von unten, Buttons und Checkboxen sind
+großzügig dimensioniert (Statusbutton 54 px hoch). Ab Tablet-Breite wechselt die
+Navigation in die Kopfzeile und Inhalte werden mehrspaltig.
+
+---
+
+## Tests
+
+**API- und Sicherheitstest** (Server muss laufen):
+
+```bash
+cd server
+node test/api-smoke-test.mjs
+```
+
+Der Test prüft 56 Punkte, darunter besonders die Rollentrennung: dass ein
+Mitarbeiter fremde Aufträge, fremde Dateien und fremde Dienstpläne auch über
+direkte API-Aufrufe nicht erreicht, keine Aufträge anlegen oder löschen kann und
+keinen Zugriff auf die Benutzerverwaltung hat.
+
+**Typprüfung des Frontends:**
+
+```bash
+cd web
+npm run typecheck
+```
+
+---
+
+## Konfiguration
+
+Für den lokalen Test ist keine Konfiguration nötig. Für einen echten Betrieb
+`server/.env.example` nach `server/.env` kopieren und anpassen – insbesondere:
+
+- `JWT_SECRET` – langer Zufallswert (sonst sind Anmelde-Tokens fälschbar)
+- `APP_BASE_URL` – Adresse des Frontends für den Link in der Reset-E-Mail
+- `CORS_ORIGIN` – erlaubte Herkunft der Browser-Anfragen
+
+---
+
+## Spätere App-Version
+
+Das Frontend ist eine reine React-App und kommuniziert ausschließlich über die
+REST-API. Für eine App-Store-Version genügt daher:
+
+```bash
+cd web
+npm install @capacitor/core @capacitor/cli
+npx cap init
+npx cap add ios      # bzw. android
+VITE_API_URL=https://api.example.de npm run build
+npx cap sync
+```
+
+Der Ordner `web/dist` wird unverändert in die native Hülle übernommen. Wichtig
+ist nur, beim Build `VITE_API_URL` auf die Serveradresse zu setzen, weil in der
+nativen App der Entwicklungs-Proxy fehlt. Das Anmelde-Token liegt bereits im
+lokalen Speicher (nicht in einem Cookie) – das funktioniert in der nativen Hülle
+unverändert.
+
+---
+
+## Vorbereitet für spätere Erweiterungen
+
+- **Push-Benachrichtigungen:** Die Statushistorie (`order_status_history`) und
+  die Zuweisungen liegen bereits strukturiert vor; ein Versand lässt sich in
+  `server/src/routes/orders.js` an den Stellen anknüpfen, an denen Status und
+  Zuweisung geändert werden.
+- **Rechnungsmodul:** Aufträge haben Kunde, Adresse, Material, Zeitfenster und
+  eine vollständige Historie – eine Tabelle `invoices` mit Bezug auf `orders`
+  genügt als Ergänzung.
+- **E-Mail-Versand:** In `server/src/lib/mailer.js` ist die Schnittstelle
+  vorbereitet; dort muss nur ein Versanddienst eingebunden werden.
+- **PostgreSQL statt SQLite:** Der Datenbankzugriff ist in
+  `server/src/db/index.js` gekapselt, das Schema ist portabel gehalten.
