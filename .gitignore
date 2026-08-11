@@ -1,0 +1,21 @@
+# Abhängigkeiten
+node_modules/
+
+# Build-Ergebnisse
+web/dist/
+
+# Datenbank und Uploads (enthalten echte Betriebsdaten – nicht ins Repository)
+server/data/
+server/uploads/*
+!server/uploads/.gitkeep
+
+# lokale Konfiguration mit Passwörtern/Secrets
+.env
+.env.local
+server/.env
+
+# Betriebssystem / Editor
+.DS_Store
+*.log
+.vscode/
+.idea/

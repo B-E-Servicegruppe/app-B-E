@@ -1,0 +1,25 @@
+{
+  "name": "be-service-server",
+  "version": "1.0.0",
+  "description": "Backend (REST-API) der B&E Service Gruppe App",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "seed": "node src/db/seed.js",
+    "reset-db": "node -e \"import('node:fs').then(fs=>{['data/be-service.db','data/be-service.db-wal','data/be-service.db-shm'].forEach(f=>fs.rmSync(f,{force:true}))})\" && npm run seed"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "better-sqlite3": "^13.0.3",
+    "cors": "^2.8.5",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^2.2.0",
+    "zod": "^4.4.3"
+  }
+}
