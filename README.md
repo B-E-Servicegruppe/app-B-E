@@ -96,10 +96,36 @@ Geprüft wird das automatisiert (siehe [Tests](#tests)).
   Abriss / Winterdienst / Entrümpelung), Termin und Zeitfenster, Material-Liste
   (beliebig viele Positionen), Notizen, Zuweisung an mehrere Mitarbeiter
 - Upload von PDFs und Bildern direkt beim Anlegen (Angebot, Grundriss, Fotos)
+- Gespeicherte Kunden lassen sich im Formular auswählen – Name, Adresse und
+  Telefon werden dann automatisch übernommen (siehe „Kunden & Objekte")
 - Auftragsliste mit Suche (Kunde, Adresse, Notiz, Auftragsnummer) und Filtern
   (Status, Auftragsart, Mitarbeiter, Zeitraum)
 - Bearbeiten, Duplizieren, Löschen, Umverteilen
 - Dashboard mit Anzahl offen / in Arbeit / erledigt
+
+### Wiederkehrende Aufträge / Serien (nur Administration)
+- Im Formular „Neuer Auftrag" die Option **Wiederkehrender Auftrag** wählen:
+  wöchentlich, alle 2 Wochen (jeweils mit Wochentag) oder monatlich am selben
+  Tag wie das Startdatum (bei kurzen Monaten automatisch der Monatsletzte)
+- Beim Speichern werden sofort alle Einzeltermine bis zum gewählten Enddatum
+  als eigenständige Aufträge angelegt (maximal 2 Jahre im Voraus) – bewusst
+  ohne Hintergrundjob, damit jeder Termin sofort sichtbar und planbar ist
+- Jeder Termin ist danach ein ganz normaler Auftrag: einzeln bearbeitbar,
+  verschiebbar, zuweisbar oder stornierbar, ohne die übrigen zu beeinflussen
+- Serie beenden (`DELETE /api/order-series/:id`) storniert nur die noch
+  offenen zukünftigen Termine – erledigte und laufende bleiben als echte
+  Arbeitshistorie unangetastet
+
+### Kunden & Objekte (nur Administration)
+- Wiederverwendbare Stammdaten unter „Kunden": Name, Adresse, Telefon, Notizen
+- Beim Anlegen eines Auftrags per Auswahl übernehmbar; die Angaben bleiben
+  zusätzlich als Momentaufnahme am Auftrag gespeichert – spätere Änderungen am
+  Kunden wirken sich nicht rückwirkend auf alte Aufträge aus
+- Anlegen, Bearbeiten, Suchen; Löschen ist gesperrt, solange noch Aufträge mit
+  dem Kunden verknüpft sind
+- Mitarbeiter sehen den Bereich nicht (Leserechte auf die Liste bestehen nur,
+  damit Auswahlfelder funktionieren – Verwaltung ist der Administration
+  vorbehalten)
 
 ### Meine Aufträge (Mitarbeiter)
 - Tabs: Heute / Diese Woche / Alle
@@ -145,11 +171,19 @@ Geprüft wird das automatisiert (siehe [Tests](#tests)).
 SQLite-Datenbank, Schema mit Kommentaren:
 [`server/src/db/schema.sql`](server/src/db/schema.sql)
 
+Bestehende Datenbanken werden beim Serverstart automatisch aktualisiert:
+Später hinzugekommene Spalten (z. B. `private_email`, `customer_id`,
+`series_id`) ergänzt `migrateAddColumns()` in
+[`server/src/db/index.js`](server/src/db/index.js) per `ALTER TABLE` –
+vorhandene Daten bleiben dabei unverändert.
+
 | Tabelle | Zweck |
 | --- | --- |
-| `users` | Benutzerkonten: Name, E-Mail, Passwort-Hash, Rolle (`ADMIN`/`EMPLOYEE`), Telefon, aktiv/deaktiviert |
+| `users` | Benutzerkonten: Name, E-Mail, Passwort-Hash, Rolle (`ADMIN`/`EMPLOYEE`), Telefon, private E-Mail (für Passwort-Reset), aktiv/deaktiviert |
 | `password_reset_tokens` | Tokens für „Passwort vergessen" (nur als Hash gespeichert, mit Ablaufzeit) |
-| `orders` | Aufträge: Kunde, Adresse, Auftragsart, Status, Termin, Zeitfenster, Notizen |
+| `customers` | Wiederverwendbare Kunden-/Objektstammdaten für die Auswahl im Auftragsformular |
+| `order_series` | Vorlagen für wiederkehrende Aufträge: Intervall, Wochentag, Zeitraum, Zeitfenster |
+| `orders` | Aufträge: Kunde, Adresse, Auftragsart, Status, Termin, Zeitfenster, Notizen; optional mit Verweis auf `customers` und die erzeugende `order_series` |
 | `order_assignments` | Zuweisung Auftrag ↔ Mitarbeiter (n:m). **Grundlage der Rechteprüfung** |
 | `order_materials` | Materialpositionen je Auftrag, zugleich Checkliste (`done`) |
 | `order_files` | Hochgeladene PDFs/Bilder: `ATTACHMENT` (vom Admin) oder `PROOF_PHOTO` (Nachweis vom Mitarbeiter) |
@@ -179,7 +213,7 @@ der Datenbank stehen nur die Metadaten. Ausgeliefert werden sie ausschließlich
 │   │   ├── db/              Datenbankverbindung, Schema, Testdaten
 │   │   ├── lib/             Sicherheit (Hashing/JWT), HTTP-Helfer, E-Mail
 │   │   ├── middleware/      Anmeldung und Rechte, Uploads, Fehlerbehandlung
-│   │   └── routes/          auth, orders, shifts, users, files
+│   │   └── routes/          auth, orders, order-series, customers, shifts, users, files
 │   ├── test/                automatischer API- und Sicherheitstest
 │   ├── data/                SQLite-Datei (wird automatisch angelegt)
 │   └── uploads/             hochgeladene PDFs und Bilder
