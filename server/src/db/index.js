@@ -33,6 +33,21 @@ db.pragma('foreign_keys = ON');
 export function applySchema() {
   const schema = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
   db.exec(schema);
+  migrateAddColumns();
+}
+
+/**
+ * Ergänzt Spalten, die nach dem ersten Anlegen der Tabelle hinzugekommen sind.
+ * "CREATE TABLE IF NOT EXISTS" (siehe schema.sql) erstellt eine neue Spalte
+ * NICHT nachträglich in einer bereits bestehenden Datenbank – dafür ist dieser
+ * Schritt da. Jede Ergänzung prüft zuerst, ob die Spalte schon existiert, der
+ * Aufruf ist daher bei jedem Serverstart unbedenklich.
+ */
+function migrateAddColumns() {
+  const userColumns = db.prepare('PRAGMA table_info(users)').all().map((c) => c.name);
+  if (!userColumns.includes('private_email')) {
+    db.exec('ALTER TABLE users ADD COLUMN private_email TEXT');
+  }
 }
 
 /**

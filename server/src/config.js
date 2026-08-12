@@ -50,6 +50,12 @@ export const config = {
   /** Gültigkeit eines Passwort-Reset-Links in Minuten */
   passwordResetTtlMinutes: Number(process.env.PASSWORD_RESET_TTL_MINUTES || 60),
 
+  /** API-Key für den E-Mail-Versand über Resend (nur im Produktionsbetrieb nötig). */
+  resendApiKey: process.env.RESEND_API_KEY || '',
+
+  /** Absenderadresse für ausgehende E-Mails. */
+  mailFrom: process.env.MAIL_FROM || 'B&E Service Gruppe <noreply@app-be-servicegruppe.de>',
+
   /** true = Produktionsmodus (strengere Prüfungen, keine Debug-Ausgaben) */
   isProduction: process.env.NODE_ENV === 'production',
 };

@@ -17,8 +17,30 @@ import { config } from '../config.js';
  */
 export async function sendMail(message) {
   if (config.isProduction) {
-    // TODO: echten Versanddienst anbinden
-    console.warn('[mail] Kein Versanddienst konfiguriert – E-Mail wurde nicht verschickt.');
+    if (!config.resendApiKey) {
+      console.warn('[mail] Kein Versanddienst konfiguriert – E-Mail wurde nicht verschickt.');
+      return;
+    }
+
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${config.resendApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: config.mailFrom,
+        to: message.to,
+        subject: message.subject,
+        text: message.text,
+      }),
+    });
+
+    if (!response.ok) {
+      const detail = await response.text();
+      console.error('[mail] Versand fehlgeschlagen:', detail);
+      throw new Error('E-Mail konnte nicht versendet werden');
+    }
     return;
   }
   console.log('\n──────────── E-MAIL (Testmodus, nicht versendet) ────────────');

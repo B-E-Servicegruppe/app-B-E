@@ -138,6 +138,11 @@ export function EmployeesPage() {
                   {user.mustChangePassword && (
                     <span className="muted small">Startpasswort noch nicht geändert</span>
                   )}
+                  {!user.privateEmail && (
+                    <span className="chip chip--STORNIERT" title="Ohne private E-Mail kann sich diese Person das Passwort nicht selbst zurücksetzen">
+                      Keine private E-Mail
+                    </span>
+                  )}
                 </div>
 
                 <div className="user-card__actions">

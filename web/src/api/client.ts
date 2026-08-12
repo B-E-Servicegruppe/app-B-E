@@ -129,6 +129,12 @@ export const authApi = {
       body: { currentPassword, newPassword },
     }),
 
+  updatePrivateEmail: (privateEmail: string) =>
+    request<{ user: User }>('/api/auth/private-email', {
+      method: 'PUT',
+      body: { privateEmail },
+    }),
+
   forgotPassword: (email: string) =>
     request<{ ok: true; message: string; devResetUrl?: string }>('/api/auth/forgot-password', {
       method: 'POST',

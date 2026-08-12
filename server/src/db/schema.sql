@@ -31,6 +31,9 @@ CREATE TABLE IF NOT EXISTS users (
   password_hash        TEXT    NOT NULL,                       -- bcrypt-Hash, nie Klartext
   role                 TEXT    NOT NULL CHECK (role IN ('ADMIN', 'EMPLOYEE')),
   phone                TEXT,
+  -- Private E-Mail-Adresse (optional). Wird für "Passwort vergessen" genutzt,
+  -- damit der Reset nicht von der Erreichbarkeit der Firmenmail abhängt.
+  private_email        TEXT,
   active               INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)),
   must_change_password INTEGER NOT NULL DEFAULT 0 CHECK (must_change_password IN (0, 1)),
   created_at           TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),

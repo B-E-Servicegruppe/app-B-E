@@ -20,6 +20,8 @@ export interface User {
   email: string;
   role: Role;
   phone: string | null;
+  /** Für "Passwort vergessen" – unabhängig von der Firmenmail erreichbar. */
+  privateEmail: string | null;
   active: boolean;
   mustChangePassword: boolean;
   /** nur in der Mitarbeiterverwaltung enthalten */

@@ -21,6 +21,27 @@ export function ProfilePage() {
   const [success, setSuccess] = useState(false);
   const [busy, setBusy] = useState(false);
 
+  const [privateEmail, setPrivateEmail] = useState(user?.privateEmail ?? '');
+  const [privateEmailError, setPrivateEmailError] = useState<string | null>(null);
+  const [privateEmailSuccess, setPrivateEmailSuccess] = useState(false);
+  const [privateEmailBusy, setPrivateEmailBusy] = useState(false);
+
+  const handlePrivateEmailSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    setPrivateEmailError(null);
+    setPrivateEmailSuccess(false);
+    setPrivateEmailBusy(true);
+    try {
+      await authApi.updatePrivateEmail(privateEmail.trim());
+      setPrivateEmailSuccess(true);
+      await refresh();
+    } catch (err) {
+      setPrivateEmailError(err instanceof ApiError ? err.message : 'Speichern fehlgeschlagen.');
+    } finally {
+      setPrivateEmailBusy(false);
+    }
+  };
+
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setError(null);
@@ -74,6 +95,38 @@ export function ProfilePage() {
             <span className="muted small">Rolle</span>
             <strong>{user?.role === 'ADMIN' ? 'Administration' : 'Mitarbeiter'}</strong>
           </div>
+        </div>
+      </div>
+
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="card__header">
+          <h2>Private E-Mail</h2>
+        </div>
+        <div className="card__body">
+          <p className="muted small" style={{ marginBottom: 12 }}>
+            Wird ausschließlich für „Passwort vergessen" genutzt – so klappt der Reset auch,
+            wenn die Firmenmail gerade nicht erreichbar ist. Sonst nirgends sichtbar.
+          </p>
+          <ErrorMessage error={privateEmailError} />
+          {privateEmailSuccess && (
+            <div className="alert alert--success">Private E-Mail gespeichert.</div>
+          )}
+          <form onSubmit={handlePrivateEmailSubmit} noValidate style={{ maxWidth: 420 }}>
+            <div className="field">
+              <label htmlFor="privateEmail">Private E-Mail-Adresse</label>
+              <input
+                id="privateEmail"
+                className="input"
+                type="email"
+                placeholder="max.mustermann@gmail.com"
+                value={privateEmail}
+                onChange={(event) => setPrivateEmail(event.target.value)}
+              />
+            </div>
+            <button type="submit" className="btn" disabled={privateEmailBusy}>
+              {privateEmailBusy ? 'Wird gespeichert …' : 'Speichern'}
+            </button>
+          </form>
         </div>
       </div>
 

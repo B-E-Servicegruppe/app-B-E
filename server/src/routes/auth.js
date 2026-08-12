@@ -45,6 +45,7 @@ export function publicUser(user) {
     email: user.email,
     role: user.role,
     phone: user.phone ?? null,
+    privateEmail: user.private_email ?? null,
     active: Boolean(user.active),
     mustChangePassword: Boolean(user.must_change_password),
   };
@@ -109,6 +110,29 @@ authRouter.post(
   })
 );
 
+// ── Private E-Mail hinterlegen/ändern ────────────────────────────────────────
+const privateEmailSchema = z.object({
+  // Leerer String = private Mail wieder entfernen.
+  privateEmail: z.union([z.string().trim().email('Bitte gültige E-Mail-Adresse angeben'), z.literal('')]),
+});
+
+authRouter.put(
+  '/private-email',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { privateEmail } = validate(privateEmailSchema, req.body);
+
+    db.prepare('UPDATE users SET private_email = ?, updated_at = ? WHERE id = ?').run(
+      privateEmail || null,
+      now(),
+      req.user.id
+    );
+
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
+    res.json({ user: publicUser(user) });
+  })
+);
+
 // ── Passwort vergessen: Link anfordern ───────────────────────────────────────
 const forgotSchema = z.object({ email: z.string().trim().min(1) });
 
@@ -136,7 +160,10 @@ authRouter.post(
     ).run(user.id, tokenHash, expiresAt);
 
     const resetUrl = `${config.appBaseUrl}/passwort-neu?token=${token}`;
-    await sendMail(passwordResetMail(user, resetUrl));
+    // Bevorzugt an die private Mail (unabhängig von der Firmenmail erreichbar).
+    // Fallback auf die Login-Adresse, falls noch keine private Mail hinterlegt ist.
+    const targetEmail = user.private_email || user.email;
+    await sendMail(passwordResetMail({ ...user, email: targetEmail }, resetUrl));
 
     // Im Testbetrieb (kein Mailversand) wird der Link mitgeliefert, damit die
     // Funktion ohne Mailserver ausprobiert werden kann.
