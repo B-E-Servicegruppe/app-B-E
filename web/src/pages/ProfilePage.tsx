@@ -22,6 +22,9 @@ export function ProfilePage() {
   const [busy, setBusy] = useState(false);
 
   const [privateEmail, setPrivateEmail] = useState(user?.privateEmail ?? '');
+  // Zur Bestätigung der Änderung wird das aktuelle Passwort verlangt (die
+  // private Adresse ist der Kanal für den Passwort-Reset).
+  const [privateEmailPassword, setPrivateEmailPassword] = useState('');
   const [privateEmailError, setPrivateEmailError] = useState<string | null>(null);
   const [privateEmailSuccess, setPrivateEmailSuccess] = useState(false);
   const [privateEmailBusy, setPrivateEmailBusy] = useState(false);
@@ -32,8 +35,9 @@ export function ProfilePage() {
     setPrivateEmailSuccess(false);
     setPrivateEmailBusy(true);
     try {
-      await authApi.updatePrivateEmail(privateEmail.trim());
+      await authApi.updatePrivateEmail(privateEmail.trim(), privateEmailPassword);
       setPrivateEmailSuccess(true);
+      setPrivateEmailPassword('');
       await refresh();
     } catch (err) {
       setPrivateEmailError(err instanceof ApiError ? err.message : 'Speichern fehlgeschlagen.');
@@ -104,8 +108,9 @@ export function ProfilePage() {
         </div>
         <div className="card__body">
           <p className="muted small" style={{ marginBottom: 12 }}>
-            Wird ausschließlich für „Passwort vergessen" genutzt – so klappt der Reset auch,
-            wenn die Firmenmail gerade nicht erreichbar ist. Sonst nirgends sichtbar.
+            Wird für „Passwort vergessen" genutzt – so klappt der Reset auch, wenn die
+            Firmenmail gerade nicht erreichbar ist. Die Adresse ist außer für dich nur für
+            die Administration sichtbar. Zum Ändern wird das aktuelle Passwort benötigt.
           </p>
           <ErrorMessage error={privateEmailError} />
           {privateEmailSuccess && (
@@ -122,8 +127,25 @@ export function ProfilePage() {
                 value={privateEmail}
                 onChange={(event) => setPrivateEmail(event.target.value)}
               />
+              <p className="field__hint">Feld leeren und speichern entfernt die Adresse wieder.</p>
             </div>
-            <button type="submit" className="btn" disabled={privateEmailBusy}>
+            <div className="field">
+              <label htmlFor="privateEmailPassword">Aktuelles Passwort zur Bestätigung</label>
+              <input
+                id="privateEmailPassword"
+                className="input"
+                type="password"
+                autoComplete="current-password"
+                value={privateEmailPassword}
+                onChange={(event) => setPrivateEmailPassword(event.target.value)}
+                required
+              />
+            </div>
+            <button
+              type="submit"
+              className="btn"
+              disabled={privateEmailBusy || !privateEmailPassword}
+            >
               {privateEmailBusy ? 'Wird gespeichert …' : 'Speichern'}
             </button>
           </form>

@@ -111,16 +111,25 @@ authRouter.post(
 );
 
 // ── Private E-Mail hinterlegen/ändern ────────────────────────────────────────
+// Die private Adresse ist der Kanal für den Passwort-Reset. Wer sie ändern
+// kann, kann sich darüber später dauerhaft Zugang verschaffen – deshalb wird
+// hier das aktuelle Passwort verlangt (ein kurz unbeaufsichtigtes Gerät mit
+// offener Sitzung reicht damit nicht aus).
 const privateEmailSchema = z.object({
   // Leerer String = private Mail wieder entfernen.
   privateEmail: z.union([z.string().trim().email('Bitte gültige E-Mail-Adresse angeben'), z.literal('')]),
+  currentPassword: z.string().min(1, 'Bitte aktuelles Passwort eingeben'),
 });
 
 authRouter.put(
   '/private-email',
   requireAuth,
   asyncHandler(async (req, res) => {
-    const { privateEmail } = validate(privateEmailSchema, req.body);
+    const { privateEmail, currentPassword } = validate(privateEmailSchema, req.body);
+
+    const account = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
+    const ok = await verifyPassword(currentPassword, account.password_hash);
+    if (!ok) throw badRequest('Das aktuelle Passwort ist falsch');
 
     db.prepare('UPDATE users SET private_email = ?, updated_at = ? WHERE id = ?').run(
       privateEmail || null,

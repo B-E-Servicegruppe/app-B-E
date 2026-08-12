@@ -133,10 +133,11 @@ export const authApi = {
       body: { currentPassword, newPassword },
     }),
 
-  updatePrivateEmail: (privateEmail: string) =>
+  /** Ändert die private E-Mail; verlangt zur Bestätigung das aktuelle Passwort. */
+  updatePrivateEmail: (privateEmail: string, currentPassword: string) =>
     request<{ user: User }>('/api/auth/private-email', {
       method: 'PUT',
-      body: { privateEmail },
+      body: { privateEmail, currentPassword },
     }),
 
   forgotPassword: (email: string) =>

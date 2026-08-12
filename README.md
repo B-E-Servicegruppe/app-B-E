@@ -132,6 +132,11 @@ Geprüft wird das automatisiert (siehe [Tests](#tests)).
 - Passwörter werden nur als bcrypt-Hash gespeichert, nie im Klartext
 - „Passwort vergessen" mit Reset-Link (im Testbetrieb wird der Link in der
   Server-Konsole ausgegeben und direkt in der App angezeigt)
+- Jeder kann unter „Mein Konto" eine private E-Mail-Adresse hinterlegen –
+  der Reset-Link geht dann bevorzugt dorthin, unabhängig von der Firmenmail.
+  Die Adresse ist außer für die Person selbst nur für die Administration
+  sichtbar; zum Ändern wird das aktuelle Passwort verlangt (die Adresse ist
+  der Kanal für den Passwort-Reset)
 
 ---
 
@@ -248,6 +253,10 @@ Für den lokalen Test ist keine Konfiguration nötig. Für einen echten Betrieb
 - `JWT_SECRET` – langer Zufallswert (sonst sind Anmelde-Tokens fälschbar)
 - `APP_BASE_URL` – Adresse des Frontends für den Link in der Reset-E-Mail
 - `CORS_ORIGIN` – erlaubte Herkunft der Browser-Anfragen
+- `RESEND_API_KEY` – API-Key von [Resend](https://resend.com) für den
+  E-Mail-Versand (Reset-Links). Ohne Key wird im Produktionsbetrieb keine
+  E-Mail verschickt; im Testbetrieb erscheint der Inhalt in der Server-Konsole
+- `MAIL_FROM` – Absenderadresse; die Domain muss bei Resend verifiziert sein
 
 ---
 
@@ -282,7 +291,9 @@ unverändert.
 - **Rechnungsmodul:** Aufträge haben Kunde, Adresse, Material, Zeitfenster und
   eine vollständige Historie – eine Tabelle `invoices` mit Bezug auf `orders`
   genügt als Ergänzung.
-- **E-Mail-Versand:** In `server/src/lib/mailer.js` ist die Schnittstelle
-  vorbereitet; dort muss nur ein Versanddienst eingebunden werden.
+- **E-Mail-Versand:** Bereits angebunden (Resend, siehe
+  `server/src/lib/mailer.js`) – im Produktionsbetrieb nur `RESEND_API_KEY`
+  und `MAIL_FROM` setzen. Ein anderer Anbieter lässt sich an derselben Stelle
+  austauschen, ohne den restlichen Code anzufassen.
 - **PostgreSQL statt SQLite:** Der Datenbankzugriff ist in
   `server/src/db/index.js` gekapselt, das Schema ist portabel gehalten.
