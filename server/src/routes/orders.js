@@ -46,6 +46,9 @@ const orderInputSchema = z.object({
   customerName: z.string().trim().min(1, 'Bitte Kundenname angeben'),
   address: z.string().trim().min(1, 'Bitte Adresse angeben'),
   contactPhone: z.string().trim().max(60).optional().nullable(),
+  // Optionaler Verweis auf einen gespeicherten Kunden (siehe routes/customers.js).
+  // Name/Adresse/Telefon oben bleiben trotzdem die maßgebliche Momentaufnahme.
+  customerId: z.number().int().positive().optional().nullable(),
   orderType: z.enum(ORDER_TYPES, { message: 'Bitte Auftragsart wählen' }),
   status: z.enum(ORDER_STATUSES).optional(),
   scheduledDate: z
@@ -81,6 +84,12 @@ function parseOrderBody(body) {
   for (const key of ['contactPhone', 'scheduledDate', 'startTime', 'endTime', 'notes']) {
     if (parsed[key] === '') parsed[key] = null;
   }
+  // customerId kommt aus multipart/form-data als String an
+  if (parsed.customerId === '' || parsed.customerId === null || parsed.customerId === undefined) {
+    parsed.customerId = null;
+  } else if (typeof parsed.customerId === 'string') {
+    parsed.customerId = Number(parsed.customerId);
+  }
   return parsed;
 }
 
@@ -93,6 +102,8 @@ function mapOrder(row) {
     customerName: row.customer_name,
     address: row.address,
     contactPhone: row.contact_phone,
+    customerId: row.customer_id ?? null,
+    seriesId: row.series_id ?? null,
     orderType: row.order_type,
     status: row.status,
     scheduledDate: row.scheduled_date,
@@ -389,14 +400,15 @@ ordersRouter.post(
       const info = db
         .prepare(
           `INSERT INTO orders
-             (customer_name, address, contact_phone, order_type, status,
+             (customer_name, address, contact_phone, customer_id, order_type, status,
               scheduled_date, start_time, end_time, notes, created_by)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         )
         .run(
           data.customerName,
           data.address,
           data.contactPhone ?? null,
+          data.customerId ?? null,
           data.orderType,
           data.status ?? 'OFFEN',
           data.scheduledDate ?? null,
@@ -440,13 +452,14 @@ ordersRouter.put(
     db.transaction(() => {
       db.prepare(
         `UPDATE orders
-            SET customer_name = ?, address = ?, contact_phone = ?, order_type = ?, status = ?,
+            SET customer_name = ?, address = ?, contact_phone = ?, customer_id = ?, order_type = ?, status = ?,
                 scheduled_date = ?, start_time = ?, end_time = ?, notes = ?, updated_at = ?
           WHERE id = ?`
       ).run(
         data.customerName,
         data.address,
         data.contactPhone ?? null,
+        data.customerId ?? null,
         data.orderType,
         newStatus,
         data.scheduledDate ?? null,
@@ -507,14 +520,15 @@ ordersRouter.post(
       const info = db
         .prepare(
           `INSERT INTO orders
-             (customer_name, address, contact_phone, order_type, status,
+             (customer_name, address, contact_phone, customer_id, order_type, status,
               scheduled_date, start_time, end_time, notes, created_by)
-           VALUES (?, ?, ?, ?, 'OFFEN', ?, ?, ?, ?, ?)`
+           VALUES (?, ?, ?, ?, ?, 'OFFEN', ?, ?, ?, ?, ?)`
         )
         .run(
           source.customer_name,
           source.address,
           source.contact_phone,
+          source.customer_id,
           source.order_type,
           source.scheduled_date,
           source.start_time,

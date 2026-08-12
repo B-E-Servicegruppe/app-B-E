@@ -13,10 +13,14 @@
  */
 import type {
   AssignableUser,
+  Customer,
+  CustomerInput,
   OrderDetail,
   OrderFile,
   OrderInput,
   OrderListItem,
+  OrderSeries,
+  OrderSeriesInput,
   OrderStats,
   OrderStatus,
   Material,
@@ -309,4 +313,39 @@ export const usersApi = {
       method: 'POST',
       body: password ? { password } : {},
     }),
+};
+
+// ── Kunden / Objekte ────────────────────────────────────────────────────────
+export const customersApi = {
+  list: (search?: string) =>
+    request<{ customers: Customer[] }>(`/api/customers${query({ q: search })}`).then(
+      (r) => r.customers
+    ),
+
+  get: (id: number) => request<{ customer: Customer }>(`/api/customers/${id}`).then((r) => r.customer),
+
+  create: (input: CustomerInput) =>
+    request<{ customer: Customer }>('/api/customers', { method: 'POST', body: input }).then(
+      (r) => r.customer
+    ),
+
+  update: (id: number, input: CustomerInput) =>
+    request<{ customer: Customer }>(`/api/customers/${id}`, { method: 'PUT', body: input }).then(
+      (r) => r.customer
+    ),
+
+  remove: (id: number) => request<{ ok: true }>(`/api/customers/${id}`, { method: 'DELETE' }),
+};
+
+// ── Wiederkehrende Aufträge (Serien) ─────────────────────────────────────────
+export const orderSeriesApi = {
+  list: () => request<{ series: OrderSeries[] }>('/api/order-series').then((r) => r.series),
+
+  create: (input: OrderSeriesInput) =>
+    request<{ series: OrderSeries; createdOrders: number }>('/api/order-series', {
+      method: 'POST',
+      body: input,
+    }),
+
+  remove: (id: number) => request<{ ok: true }>(`/api/order-series/${id}`, { method: 'DELETE' }),
 };

@@ -25,6 +25,7 @@ import { OrderDetailPage } from './pages/OrderDetailPage';
 import { MyOrdersPage } from './pages/MyOrdersPage';
 import { SchedulePage } from './pages/SchedulePage';
 import { EmployeesPage } from './pages/EmployeesPage';
+import { CustomersPage } from './pages/CustomersPage';
 
 /** Leitet Nicht-Angemeldete zur Anmeldung (und merkt sich das Ziel). */
 function RequireAuth({ children }: { children: ReactNode }) {
@@ -72,6 +73,7 @@ export default function App() {
       <Route path="/auftraege/neu" element={<RequireAdmin><OrderFormPage /></RequireAdmin>} />
       <Route path="/auftraege/:id/bearbeiten" element={<RequireAdmin><OrderFormPage /></RequireAdmin>} />
       <Route path="/mitarbeiter" element={<RequireAdmin><EmployeesPage /></RequireAdmin>} />
+      <Route path="/kunden" element={<RequireAdmin><CustomersPage /></RequireAdmin>} />
 
       {/* Für beide Rollen (Inhalt richtet sich nach den Rechten) */}
       <Route path="/meine-auftraege" element={<RequireAuth><MyOrdersPage /></RequireAuth>} />

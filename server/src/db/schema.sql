@@ -53,6 +53,52 @@ CREATE TABLE IF NOT EXISTS password_reset_tokens (
 CREATE INDEX IF NOT EXISTS idx_reset_tokens_user ON password_reset_tokens(user_id);
 
 -- -----------------------------------------------------------------------------
+-- KUNDEN / OBJEKTE
+-- -----------------------------------------------------------------------------
+-- Wiederverwendbare Stammdaten. Beim Anlegen eines Auftrags kann ein Kunde
+-- ausgewählt werden – Name/Adresse/Telefon werden dann automatisch übernommen
+-- (und bleiben zusätzlich als Momentaufnahme direkt am Auftrag gespeichert,
+-- damit sich spätere Änderungen am Kunden nicht rückwirkend auf alte,
+-- bereits abgeschlossene Aufträge auswirken).
+CREATE TABLE IF NOT EXISTS customers (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  name          TEXT    NOT NULL,
+  address       TEXT,
+  contact_phone TEXT,
+  notes         TEXT,
+  created_by    INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at    TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  updated_at    TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+CREATE INDEX IF NOT EXISTS idx_customers_name ON customers(name COLLATE NOCASE);
+
+-- -----------------------------------------------------------------------------
+-- WIEDERKEHRENDE AUFTRÄGE (SERIEN)
+-- -----------------------------------------------------------------------------
+-- Eine Serie ist die "Vorlage" (z. B. "jeden Montag Treppenhaus reinigen").
+-- Beim Anlegen einer Serie werden die einzelnen orders-Zeilen für den
+-- gewählten Zeitraum sofort erzeugt (siehe order_series_id an orders) – jeder
+-- Termin bleibt danach ein ganz normaler, einzeln bearbeitbarer Auftrag.
+CREATE TABLE IF NOT EXISTS order_series (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  customer_id   INTEGER REFERENCES customers(id) ON DELETE SET NULL,
+  customer_name TEXT    NOT NULL,
+  address       TEXT    NOT NULL,
+  contact_phone TEXT,
+  order_type    TEXT    NOT NULL CHECK (order_type IN
+                  ('REINIGUNG', 'GARTEN', 'ABRISS', 'WINTERDIENST', 'ENTRUEMPELUNG')),
+  notes         TEXT,
+  interval_type TEXT    NOT NULL CHECK (interval_type IN ('WEEKLY', 'BIWEEKLY', 'MONTHLY')),
+  weekday       INTEGER CHECK (weekday BETWEEN 0 AND 6),  -- 0=Montag … 6=Sonntag
+  start_time    TEXT,
+  end_time      TEXT,
+  start_date    TEXT    NOT NULL,          -- 'YYYY-MM-DD' – erster Termin
+  end_date      TEXT    NOT NULL,          -- 'YYYY-MM-DD' – letzter möglicher Termin
+  created_by    INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at    TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+-- -----------------------------------------------------------------------------
 -- AUFTRÄGE
 -- -----------------------------------------------------------------------------
 -- order_type:  Reinigung | Garten | Abriss | Winterdienst | Entrümpelung
@@ -62,6 +108,12 @@ CREATE TABLE IF NOT EXISTS orders (
   customer_name  TEXT    NOT NULL,
   address        TEXT    NOT NULL,          -- einzeilige Adresse für Google-Maps-Link
   contact_phone  TEXT,
+  -- Verweis auf den ausgewählten Kunden (optional – Auftrag funktioniert auch
+  -- ganz ohne Kundenstamm, mit frei eingetippten Angaben oben).
+  customer_id    INTEGER REFERENCES customers(id) ON DELETE SET NULL,
+  -- Verweis auf die erzeugende Serie, falls der Auftrag aus einer
+  -- wiederkehrenden Vorlage stammt.
+  series_id      INTEGER REFERENCES order_series(id) ON DELETE SET NULL,
   order_type     TEXT    NOT NULL CHECK (order_type IN
                    ('REINIGUNG', 'GARTEN', 'ABRISS', 'WINTERDIENST', 'ENTRUEMPELUNG')),
   status         TEXT    NOT NULL DEFAULT 'OFFEN' CHECK (status IN
@@ -77,6 +129,11 @@ CREATE TABLE IF NOT EXISTS orders (
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
 CREATE INDEX IF NOT EXISTS idx_orders_date   ON orders(scheduled_date);
 CREATE INDEX IF NOT EXISTS idx_orders_type   ON orders(order_type);
+-- Hinweis: Die Indizes auf orders.customer_id und orders.series_id werden in
+-- src/db/index.js (migrateAddColumns) angelegt – NACH dem ALTER TABLE, das die
+-- Spalten auf bestehenden Datenbanken erst ergänzt. Stünden sie hier, würde
+-- dieses Schema auf einer bestehenden Datenbank mit "no such column" scheitern,
+-- bevor die Migration überhaupt läuft.
 
 -- Zuweisung Auftrag <-> Mitarbeiter (n:m, ein Auftrag kann mehrere Mitarbeiter
 -- haben und umgekehrt). Diese Tabelle ist die Grundlage der serverseitigen

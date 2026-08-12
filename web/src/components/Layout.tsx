@@ -14,6 +14,7 @@ import {
   IconCalendar,
   IconDashboard,
   IconLogout,
+  IconMapPin,
   IconOrders,
   IconTeam,
   IconUser,
@@ -32,6 +33,7 @@ const ADMIN_NAV: NavItem[] = [
   { to: '/dashboard', label: 'Übersicht', shortLabel: 'Übersicht', icon: IconDashboard },
   { to: '/auftraege', label: 'Aufträge', shortLabel: 'Aufträge', icon: IconOrders },
   { to: '/dienstplan', label: 'Dienstplan', shortLabel: 'Plan', icon: IconCalendar },
+  { to: '/kunden', label: 'Kunden', shortLabel: 'Kunden', icon: IconMapPin },
   { to: '/mitarbeiter', label: 'Mitarbeiter', shortLabel: 'Team', icon: IconTeam },
 ];
 

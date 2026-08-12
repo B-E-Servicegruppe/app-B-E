@@ -48,6 +48,21 @@ function migrateAddColumns() {
   if (!userColumns.includes('private_email')) {
     db.exec('ALTER TABLE users ADD COLUMN private_email TEXT');
   }
+
+  const orderColumns = db.prepare('PRAGMA table_info(orders)').all().map((c) => c.name);
+  if (!orderColumns.includes('customer_id')) {
+    db.exec('ALTER TABLE orders ADD COLUMN customer_id INTEGER REFERENCES customers(id) ON DELETE SET NULL');
+  }
+  if (!orderColumns.includes('series_id')) {
+    db.exec('ALTER TABLE orders ADD COLUMN series_id INTEGER REFERENCES order_series(id) ON DELETE SET NULL');
+  }
+
+  // Indizes auf die ggf. gerade ergänzten Spalten – bewusst hier und nicht in
+  // schema.sql: Dort würden sie auf bestehenden Datenbanken ausgeführt, BEVOR
+  // die ALTER-TABLE-Schritte oben die Spalten anlegen, und mit
+  // "no such column" fehlschlagen. IF NOT EXISTS macht den Aufruf idempotent.
+  db.exec('CREATE INDEX IF NOT EXISTS idx_orders_customer ON orders(customer_id)');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_orders_series ON orders(series_id)');
 }
 
 /**

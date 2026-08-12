@@ -21,6 +21,8 @@ import { ordersRouter } from './routes/orders.js';
 import { usersRouter } from './routes/users.js';
 import { shiftsRouter } from './routes/shifts.js';
 import { filesRouter } from './routes/files.js';
+import { customersRouter } from './routes/customers.js';
+import { orderSeriesRouter } from './routes/order-series.js';
 import { errorHandler, notFoundHandler } from './middleware/error.js';
 
 applySchema();
@@ -45,9 +47,11 @@ app.get('/api/health', (_req, res) => {
 
 app.use('/api/auth', authRouter);
 app.use('/api/orders', ordersRouter);
+app.use('/api/order-series', orderSeriesRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/shifts', shiftsRouter);
 app.use('/api/files', filesRouter);
+app.use('/api/customers', customersRouter);
 
 // ── Ausgeliefertes Frontend (Produktions-Build) ──────────────────────────────
 // Nach `npm run build` im Verzeichnis web/ liegt dort ein Ordner dist/.

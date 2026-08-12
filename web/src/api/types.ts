@@ -84,6 +84,8 @@ export interface OrderListItem {
   customerName: string;
   address: string;
   contactPhone: string | null;
+  customerId: number | null;
+  seriesId: number | null;
   orderType: OrderType;
   status: OrderStatus;
   scheduledDate: string | null;
@@ -135,6 +137,8 @@ export interface OrderInput {
   customerName: string;
   address: string;
   contactPhone?: string | null;
+  /** Verweis auf einen gespeicherten Kunden (siehe CustomersPage) */
+  customerId?: number | null;
   orderType: OrderType;
   status?: OrderStatus;
   scheduledDate?: string | null;
@@ -142,5 +146,64 @@ export interface OrderInput {
   endTime?: string | null;
   notes?: string | null;
   materials?: { name: string; quantity?: string | null; done?: boolean }[];
+  assigneeIds?: number[];
+}
+
+/** Gespeicherter Kunde/Objekt zur Wiederverwendung beim Anlegen von Aufträgen */
+export interface Customer {
+  id: number;
+  name: string;
+  address: string | null;
+  contactPhone: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  /** Anzahl bisheriger Aufträge für diesen Kunden */
+  orderCount: number;
+}
+
+export interface CustomerInput {
+  name: string;
+  address?: string | null;
+  contactPhone?: string | null;
+  notes?: string | null;
+}
+
+export type SeriesInterval = 'WEEKLY' | 'BIWEEKLY' | 'MONTHLY';
+
+/** Vorlage für einen wiederkehrenden Auftrag */
+export interface OrderSeries {
+  id: number;
+  customerId: number | null;
+  customerName: string;
+  address: string;
+  contactPhone: string | null;
+  orderType: OrderType;
+  notes: string | null;
+  intervalType: SeriesInterval;
+  weekday: number | null;
+  startTime: string | null;
+  endTime: string | null;
+  startDate: string;
+  endDate: string;
+  createdAt: string;
+  /** Anzahl der bereits erzeugten Einzeltermine */
+  occurrenceCount: number;
+}
+
+export interface OrderSeriesInput {
+  customerId?: number | null;
+  customerName: string;
+  address: string;
+  contactPhone?: string | null;
+  orderType: OrderType;
+  notes?: string | null;
+  intervalType: SeriesInterval;
+  /** 0 = Montag … 6 = Sonntag. Bei MONTHLY nicht nötig. */
+  weekday?: number | null;
+  startDate: string;
+  endDate: string;
+  startTime?: string | null;
+  endTime?: string | null;
   assigneeIds?: number[];
 }

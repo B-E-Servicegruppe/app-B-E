@@ -8,23 +8,28 @@
  * Ansicht als Lesezeichen speichern oder weitergeben (z. B. /auftraege?status=OFFEN).
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { ordersApi, usersApi } from '../api/client';
 import type { AssignableUser, OrderListItem } from '../api/types';
 import { PageHeader } from '../components/Layout';
 import { OrderCard } from '../components/OrderCard';
-import { EmptyState, ErrorMessage, Loading } from '../components/ui';
+import { EmptyState, ErrorMessage, Loading, Toast } from '../components/ui';
 import { IconFilter, IconOrders, IconPlus, IconSearch } from '../components/Icons';
 import { ORDER_STATUSES, ORDER_TYPES, STATUS_LABEL, TYPE_LABEL } from '../utils/labels';
 import './pages.css';
 
 export function OrdersPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
   const [orders, setOrders] = useState<OrderListItem[]>([]);
   const [employees, setEmployees] = useState<AssignableUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
+  // Meldung z. B. nach dem Anlegen eines wiederkehrenden Auftrags
+  const [toast, setToast] = useState<string | null>(
+    (location.state as { toast?: string } | null)?.toast ?? null
+  );
 
   // Freitextsuche wird verzögert an den Server geschickt (siehe useEffect unten)
   const [searchInput, setSearchInput] = useState(searchParams.get('q') ?? '');
@@ -248,6 +253,8 @@ export function OrdersPage() {
           ))}
         </div>
       )}
+
+      <Toast message={toast} onDone={() => setToast(null)} />
     </>
   );
 }
