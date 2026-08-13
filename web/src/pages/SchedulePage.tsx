@@ -354,8 +354,13 @@ export function SchedulePage() {
                           {shift.startTime ? `${shift.startTime}` : 'ganztägig'}
                         </span>
                         <span className="shift__title">
-                          {shift.order ? shift.order.customerName : shift.title || 'Eintrag'}
+                          {/* Objekt/Adresse zuerst – bei mehreren Objekten pro Kunde ist das
+                              die eigentlich unterscheidende Information im Dienstplan. */}
+                          {shift.order ? shift.order.address : shift.title || 'Eintrag'}
                         </span>
+                        {shift.order && (
+                          <span className="shift__customer">{shift.order.customerName}</span>
+                        )}
                         {/* Bei gefilterter Ansicht ist der Name überflüssig */}
                         {isAdmin && !employeeFilter && (
                           <span className="shift__user">{shift.userName}</span>
@@ -559,7 +564,7 @@ function ShiftDialog({
           <option value="">Kein Auftrag (z. B. Urlaub, Werkstatt)</option>
           {orders.map((order) => (
             <option key={order.id} value={order.id}>
-              #{order.id} · {order.customerName} · {TYPE_LABEL[order.orderType]}
+              #{order.id} · {order.address} · {order.customerName} · {TYPE_LABEL[order.orderType]}
             </option>
           ))}
         </select>
