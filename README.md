@@ -106,6 +106,13 @@ Geprüft wird das automatisiert (siehe [Tests](#tests)).
 - Auftragsliste mit Suche (Kunde, Adresse, Notiz, Auftragsnummer) und Filtern
   (Status, Auftragsart, Mitarbeiter, Zeitraum)
 - Bearbeiten, Duplizieren, Löschen, Umverteilen
+- **Auswahlmodus zum Sammel-Löschen:** Über den Button „Auswählen" lassen
+  sich mehrere Aufträge per Checkbox markieren und nach Sicherheitsabfrage
+  gemeinsam löschen – inklusive zugehöriger Dateien und
+  Dienstplan-Einträge. Praktisch z. B. zum Aufräumen der stornierten
+  Termine nach dem Beenden einer Serie. Gruppierte Serien-Karten sind von
+  der Auswahl ausgenommen; serverseitig `POST /api/orders/bulk-delete`
+  (nur Admin, max. 500 auf einmal)
 - Dashboard mit Anzahl offen / in Arbeit / erledigt
 
 ### Wiederkehrende Aufträge / Serien (nur Administration)
@@ -169,6 +176,13 @@ Geprüft wird das automatisiert (siehe [Tests](#tests)).
   Eintrag mit, eine Umverteilung wechselt den Mitarbeiter, Stornieren oder
   Löschen entfernt ihn (Reaktivieren legt ihn wieder an). Das gilt auch für
   alle Termine einer Serie
+- **Abgleich beim Serverstart:** Beim Hochfahren gleicht der Server die
+  Dienstplan-Einträge aller bestehenden Aufträge einmal ab
+  (`backfillShiftsForExistingOrders()` in `server/src/routes/orders.js`).
+  So tauchen auch Aufträge im Plan auf, die vor Einführung der
+  Synchronisation angelegt und seitdem nicht mehr angefasst wurden. Der
+  Abgleich legt nur an bzw. korrigiert, was wirklich fehlt, und lässt freie
+  Einträge unberührt – er ist daher bei jedem Start unbedenklich
 - Administration: zusätzlich freie Einträge anlegen (z. B. Urlaub,
   Werkstatt, Bereitschaft), bearbeiten, löschen; per Drag & Drop auf andere
   Tage ziehen; auch manuell mit einem Auftrag verknüpfbar (Termin und
