@@ -95,6 +95,11 @@ Geprüft wird das automatisiert (siehe [Tests](#tests)).
 - Neuer Auftrag mit Kundenname, Adresse, Auftragsart (Reinigung / Garten /
   Abriss / Winterdienst / Entrümpelung), Termin und Zeitfenster, Material-Liste
   (beliebig viele Positionen), Notizen, Zuweisung an mehrere Mitarbeiter
+- Optionale **Unterart** je Auftragsart (z. B. Grundreinigung oder
+  Bauendreinigung bei Reinigung, Räum- oder Streudienst bei Winterdienst):
+  freies Textfeld mit Vorschlagsliste passend zur gewählten Auftragsart –
+  neue Unterarten brauchen also keine Programmierung. Wird in Auftragsliste
+  und Detailansicht angezeigt und beim Duplizieren übernommen
 - Upload von PDFs und Bildern direkt beim Anlegen (Angebot, Grundriss, Fotos)
 - Gespeicherte Kunden lassen sich im Formular auswählen – Name, Adresse und
   Telefon werden dann automatisch übernommen (siehe „Kunden & Objekte")
@@ -105,8 +110,15 @@ Geprüft wird das automatisiert (siehe [Tests](#tests)).
 
 ### Wiederkehrende Aufträge / Serien (nur Administration)
 - Im Formular „Neuer Auftrag" die Option **Wiederkehrender Auftrag** wählen:
-  wöchentlich, alle 2 Wochen (jeweils mit Wochentag) oder monatlich am selben
-  Tag wie das Startdatum (bei kurzen Monaten automatisch der Monatsletzte)
+  wöchentlich oder alle 2 Wochen mit **einem oder mehreren Wochentagen**
+  (z. B. jeden Montag und Donnerstag für zweimal wöchentlich), oder monatlich
+  am selben Tag wie das Startdatum (bei kurzen Monaten automatisch der
+  Monatsletzte)
+- Beim 14-tägigen Rhythmus bleiben alle gewählten Wochentage synchron in
+  derselben Woche – Montag und Donnerstag driften also nicht in verschiedene
+  Wochen auseinander
+- Auch die Unterart (siehe Auftragsverwaltung) lässt sich an der Serie
+  hinterlegen und wird auf alle erzeugten Termine übernommen
 - Beim Speichern werden sofort alle Einzeltermine bis zum gewählten Enddatum
   als eigenständige Aufträge angelegt (maximal 2 Jahre im Voraus) – bewusst
   ohne Hintergrundjob, damit jeder Termin sofort sichtbar und planbar ist
@@ -182,8 +194,8 @@ vorhandene Daten bleiben dabei unverändert.
 | `users` | Benutzerkonten: Name, E-Mail, Passwort-Hash, Rolle (`ADMIN`/`EMPLOYEE`), Telefon, private E-Mail (für Passwort-Reset), aktiv/deaktiviert |
 | `password_reset_tokens` | Tokens für „Passwort vergessen" (nur als Hash gespeichert, mit Ablaufzeit) |
 | `customers` | Wiederverwendbare Kunden-/Objektstammdaten für die Auswahl im Auftragsformular |
-| `order_series` | Vorlagen für wiederkehrende Aufträge: Intervall, Wochentag, Zeitraum, Zeitfenster |
-| `orders` | Aufträge: Kunde, Adresse, Auftragsart, Status, Termin, Zeitfenster, Notizen; optional mit Verweis auf `customers` und die erzeugende `order_series` |
+| `order_series` | Vorlagen für wiederkehrende Aufträge: Intervall, ein oder mehrere Wochentage, Unterart, Zeitraum, Zeitfenster |
+| `orders` | Aufträge: Kunde, Adresse, Auftragsart, Unterart, Status, Termin, Zeitfenster, Notizen; optional mit Verweis auf `customers` und die erzeugende `order_series` |
 | `order_assignments` | Zuweisung Auftrag ↔ Mitarbeiter (n:m). **Grundlage der Rechteprüfung** |
 | `order_materials` | Materialpositionen je Auftrag, zugleich Checkliste (`done`) |
 | `order_files` | Hochgeladene PDFs/Bilder: `ATTACHMENT` (vom Admin) oder `PROOF_PHOTO` (Nachweis vom Mitarbeiter) |
