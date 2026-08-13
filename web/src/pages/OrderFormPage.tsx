@@ -459,7 +459,7 @@ export function OrderFormPage() {
                                 border: '1px solid var(--border)',
                                 borderRadius: 8,
                                 padding: '6px 10px',
-                                background: weekdays.includes(index) ? 'var(--brand-light)' : 'transparent',
+                                background: weekdays.includes(index) ? 'var(--accent-100)' : 'transparent',
                               }}
                             >
                               <input
