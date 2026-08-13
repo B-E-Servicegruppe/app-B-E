@@ -22,7 +22,7 @@ import type {
 import { PageHeader } from '../components/Layout';
 import { ErrorMessage, Loading } from '../components/ui';
 import { IconPaperclip, IconPlus, IconTrash, IconUpload } from '../components/Icons';
-import { ORDER_STATUSES, ORDER_TYPES, STATUS_LABEL, TYPE_LABEL } from '../utils/labels';
+import { ORDER_STATUSES, ORDER_TYPES, ORDER_SUBTYPE_SUGGESTIONS, STATUS_LABEL, TYPE_LABEL } from '../utils/labels';
 import './pages.css';
 
 const WEEKDAY_LABEL = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
@@ -54,6 +54,7 @@ export function OrderFormPage() {
   const [contactPhone, setContactPhone] = useState('');
   const [customerId, setCustomerId] = useState<number | null>(null);
   const [orderType, setOrderType] = useState<OrderType>('REINIGUNG');
+  const [subtype, setSubtype] = useState('');
   const [status, setStatus] = useState<OrderStatus>('OFFEN');
   const [scheduledDate, setScheduledDate] = useState('');
   const [startTime, setStartTime] = useState('');
@@ -69,8 +70,14 @@ export function OrderFormPage() {
   // ── Wiederkehrender Auftrag (nur beim Neuanlegen möglich) ───────────────
   const [recurring, setRecurring] = useState(false);
   const [intervalType, setIntervalType] = useState<SeriesInterval>('WEEKLY');
-  const [weekday, setWeekday] = useState(0);
+  const [weekdays, setWeekdays] = useState<number[]>([]);
   const [seriesEndDate, setSeriesEndDate] = useState('');
+
+  const toggleWeekday = (day: number) => {
+    setWeekdays((current) =>
+      current.includes(day) ? current.filter((d) => d !== day) : [...current, day].sort()
+    );
+  };
 
   const [employees, setEmployees] = useState<AssignableUser[]>([]);
   const [loading, setLoading] = useState(isEdit);
@@ -110,6 +117,7 @@ export function OrderFormPage() {
         setContactPhone(order.contactPhone ?? '');
         setCustomerId(order.customerId ?? null);
         setOrderType(order.orderType);
+        setSubtype(order.subtype ?? '');
         setStatus(order.status);
         setScheduledDate(order.scheduledDate ?? '');
         setStartTime(order.startTime ?? '');
@@ -187,9 +195,10 @@ export function OrderFormPage() {
           address: address.trim(),
           contactPhone: contactPhone.trim() || null,
           orderType,
+          subtype: subtype.trim() || null,
           notes: notes.trim() || null,
           intervalType,
-          weekday: intervalType === 'MONTHLY' ? null : weekday,
+          weekdays: intervalType === 'MONTHLY' ? [] : weekdays,
           startDate: scheduledDate,
           endDate: seriesEndDate,
           startTime: startTime || null,
@@ -222,6 +231,7 @@ export function OrderFormPage() {
       contactPhone: contactPhone.trim() || null,
       customerId,
       orderType,
+      subtype: subtype.trim() || null,
       status,
       scheduledDate: scheduledDate || null,
       startTime: startTime || null,
@@ -365,6 +375,27 @@ export function OrderFormPage() {
             </div>
 
             <div className="field">
+              <label htmlFor="subtype">Unterart (optional)</label>
+              <input
+                id="subtype"
+                className="input"
+                list="subtype-suggestions"
+                value={subtype}
+                onChange={(event) => setSubtype(event.target.value)}
+                placeholder="z. B. Grundreinigung, Bauendreinigung …"
+              />
+              <datalist id="subtype-suggestions">
+                {ORDER_SUBTYPE_SUGGESTIONS[orderType].map((suggestion) => (
+                  <option key={suggestion} value={suggestion} />
+                ))}
+              </datalist>
+              <p className="field__hint">
+                Vorschläge passend zur gewählten Auftragsart – du kannst aber auch einen eigenen
+                Text eintragen.
+              </p>
+            </div>
+
+            <div className="field">
               <label htmlFor="date">{recurring ? 'Erster Termin (Startdatum) *' : 'Termin'}</label>
               <input
                 id="date"
@@ -414,19 +445,33 @@ export function OrderFormPage() {
 
                     {intervalType !== 'MONTHLY' && (
                       <div className="field" style={{ marginBottom: 0 }}>
-                        <label htmlFor="weekday">Wochentag</label>
-                        <select
-                          id="weekday"
-                          className="select"
-                          value={weekday}
-                          onChange={(event) => setWeekday(Number(event.target.value))}
-                        >
+                        <label>Wochentag(e)</label>
+                        <p className="field__hint" style={{ marginTop: 0 }}>
+                          Mehrfachauswahl möglich, z. B. Montag und Donnerstag für zweimal
+                          wöchentlich.
+                        </p>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                           {WEEKDAY_LABEL.map((label, index) => (
-                            <option key={label} value={index}>
-                              {label}
-                            </option>
+                            <label
+                              key={label}
+                              className="check-item"
+                              style={{
+                                border: '1px solid var(--border)',
+                                borderRadius: 8,
+                                padding: '6px 10px',
+                                background: weekdays.includes(index) ? 'var(--brand-light)' : 'transparent',
+                              }}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={weekdays.includes(index)}
+                                onChange={() => toggleWeekday(index)}
+                              />
+                              <span>{label}</span>
+                            </label>
                           ))}
-                        </select>
+                        </div>
+                        {fieldErrors.weekdays && <p className="field__error">{fieldErrors.weekdays}</p>}
                       </div>
                     )}
 

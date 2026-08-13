@@ -27,7 +27,7 @@ export const orderSeriesRouter = express.Router();
 
 orderSeriesRouter.use(requireAuth, requireAdmin);
 
-const MAX_OCCURRENCES = 208; // ~4 Jahre wöchentlich – reichlich Sicherheitsmarge
+const MAX_OCCURRENCES = 400; // z. B. 2x/Woche über 2 Jahre = ~208 – reichlich Sicherheitsmarge
 const MAX_HORIZON_DAYS = 365 * 2;
 
 const seriesSchema = z
@@ -37,13 +37,16 @@ const seriesSchema = z
     address: z.string().trim().min(1, 'Bitte Adresse angeben'),
     contactPhone: z.string().trim().max(60).optional().nullable(),
     orderType: z.enum(ORDER_TYPES, { message: 'Bitte Auftragsart wählen' }),
+    subtype: z.string().trim().max(120).optional().nullable(),
     notes: z.string().max(5000).optional().nullable(),
     intervalType: z.enum(['WEEKLY', 'BIWEEKLY', 'MONTHLY'], {
       message: 'Bitte Intervall wählen',
     }),
-    // 0 = Montag … 6 = Sonntag. Pflicht für wöchentlich/alle 2 Wochen,
-    // wird bei monatlich ignoriert (dort zählt der Tag im Monat von startDate).
-    weekday: z.number().int().min(0).max(6).optional().nullable(),
+    // 0 = Montag … 6 = Sonntag. Ein oder mehrere Wochentage möglich, z. B.
+    // [0, 3] für "jeden Montag UND Donnerstag". Pflicht für wöchentlich/
+    // alle 2 Wochen, wird bei monatlich ignoriert (dort zählt der Tag im
+    // Monat von startDate).
+    weekdays: z.array(z.number().int().min(0).max(6)).optional(),
     startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Datum im Format JJJJ-MM-TT'),
     endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Datum im Format JJJJ-MM-TT'),
     startTime: z.string().regex(/^\d{2}:\d{2}$/, 'Uhrzeit im Format HH:MM').optional().nullable(),
@@ -54,13 +57,13 @@ const seriesSchema = z
     message: 'Das Enddatum muss nach dem Startdatum liegen',
     path: ['endDate'],
   })
-  .refine((data) => data.intervalType === 'MONTHLY' || data.weekday !== undefined && data.weekday !== null, {
-    message: 'Bitte Wochentag wählen',
-    path: ['weekday'],
+  .refine((data) => data.intervalType === 'MONTHLY' || (data.weekdays && data.weekdays.length > 0), {
+    message: 'Bitte mindestens einen Wochentag wählen',
+    path: ['weekdays'],
   });
 
 /** Erzeugt die Liste der Termin-Daten (YYYY-MM-DD) für eine Serie. */
-function generateDates({ intervalType, weekday, startDate, endDate }) {
+function generateDates({ intervalType, weekdays, startDate, endDate }) {
   const start = new Date(`${startDate}T00:00:00Z`);
   const end = new Date(`${endDate}T00:00:00Z`);
 
@@ -87,17 +90,36 @@ function generateDates({ intervalType, weekday, startDate, endDate }) {
     return dates;
   }
 
-  // WEEKLY / BIWEEKLY: ersten passenden Wochentag ab startDate finden
-  const stepDays = intervalType === 'BIWEEKLY' ? 14 : 7;
-  const cursor = new Date(start);
+  // WEEKLY / BIWEEKLY mit einem oder mehreren Wochentagen: Tag für Tag von
+  // startDate bis endDate durchgehen (bei max. 2 Jahren Zeitraum sind das
+  // höchstens ~730 Prüfungen – vernachlässigbar) und jeden Tag aufnehmen,
+  // dessen Wochentag in der Auswahl ist. Bei BIWEEKLY zusätzlich nur jede
+  // zweite Woche, gezählt ab der Woche von startDate, damit alle gewählten
+  // Wochentage synchron im gleichen Rhythmus bleiben (kein Auseinanderdriften
+  // zwischen z. B. Montag und Donnerstag).
+  const weekdaySet = new Set(weekdays);
   // JS: getUTCDay() 0=Sonntag..6=Samstag → auf unser Schema 0=Montag..6=Sonntag umrechnen
   const jsToOurWeekday = (d) => (d.getUTCDay() + 6) % 7;
-  while (jsToOurWeekday(cursor) !== weekday) {
-    cursor.setUTCDate(cursor.getUTCDate() + 1);
-  }
+
+  // Beginn der Kalenderwoche (Montag) von startDate, als Referenz für BIWEEKLY.
+  const startWeekMonday = new Date(start);
+  startWeekMonday.setUTCDate(startWeekMonday.getUTCDate() - jsToOurWeekday(startWeekMonday));
+
+  const cursor = new Date(start);
   while (cursor <= end && dates.length < MAX_OCCURRENCES) {
-    dates.push(cursor.toISOString().slice(0, 10));
-    cursor.setUTCDate(cursor.getUTCDate() + stepDays);
+    if (weekdaySet.has(jsToOurWeekday(cursor))) {
+      let include = true;
+      if (intervalType === 'BIWEEKLY') {
+        const cursorWeekMonday = new Date(cursor);
+        cursorWeekMonday.setUTCDate(cursorWeekMonday.getUTCDate() - jsToOurWeekday(cursor));
+        const weeksBetween = Math.round(
+          (cursorWeekMonday - startWeekMonday) / (1000 * 60 * 60 * 24 * 7)
+        );
+        include = weeksBetween % 2 === 0;
+      }
+      if (include) dates.push(cursor.toISOString().slice(0, 10));
+    }
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
   }
   return dates;
 }
@@ -110,9 +132,10 @@ function mapSeries(row) {
     address: row.address,
     contactPhone: row.contact_phone,
     orderType: row.order_type,
+    subtype: row.subtype,
     notes: row.notes,
     intervalType: row.interval_type,
-    weekday: row.weekday,
+    weekdays: row.weekdays ? row.weekdays.split(',').map(Number) : [],
     startTime: row.start_time,
     endTime: row.end_time,
     startDate: row.start_date,
@@ -148,9 +171,9 @@ orderSeriesRouter.post(
       const seriesInfo = db
         .prepare(
           `INSERT INTO order_series
-             (customer_id, customer_name, address, contact_phone, order_type, notes,
-              interval_type, weekday, start_time, end_time, start_date, end_date, created_by)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+             (customer_id, customer_name, address, contact_phone, order_type, subtype, notes,
+              interval_type, weekdays, start_time, end_time, start_date, end_date, created_by)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         )
         .run(
           data.customerId ?? null,
@@ -158,9 +181,10 @@ orderSeriesRouter.post(
           data.address,
           data.contactPhone ?? null,
           data.orderType,
+          data.subtype ?? null,
           data.notes ?? null,
           data.intervalType,
-          data.intervalType === 'MONTHLY' ? null : data.weekday,
+          data.intervalType === 'MONTHLY' ? null : [...new Set(data.weekdays)].sort().join(','),
           data.startTime ?? null,
           data.endTime ?? null,
           data.startDate,
@@ -171,9 +195,9 @@ orderSeriesRouter.post(
 
       const insertOrder = db.prepare(
         `INSERT INTO orders
-           (customer_name, address, contact_phone, customer_id, series_id, order_type, status,
+           (customer_name, address, contact_phone, customer_id, series_id, order_type, subtype, status,
             scheduled_date, start_time, end_time, notes, created_by)
-         VALUES (?, ?, ?, ?, ?, ?, 'OFFEN', ?, ?, ?, ?, ?)`
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'OFFEN', ?, ?, ?, ?, ?)`
       );
       const insertHistory = db.prepare(
         `INSERT INTO order_status_history (order_id, from_status, to_status, changed_by)
@@ -192,6 +216,7 @@ orderSeriesRouter.post(
           data.customerId ?? null,
           seriesId,
           data.orderType,
+          data.subtype ?? null,
           date,
           data.startTime ?? null,
           data.endTime ?? null,

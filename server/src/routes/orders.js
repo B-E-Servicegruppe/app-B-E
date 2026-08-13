@@ -50,6 +50,9 @@ const orderInputSchema = z.object({
   // Name/Adresse/Telefon oben bleiben trotzdem die maßgebliche Momentaufnahme.
   customerId: z.number().int().positive().optional().nullable(),
   orderType: z.enum(ORDER_TYPES, { message: 'Bitte Auftragsart wählen' }),
+  // Unterart innerhalb der Auftragsart, z. B. "Grundreinigung". Frei
+  // befüllbar, die Vorschlagsliste je Auftragsart kommt aus dem Frontend.
+  subtype: z.string().trim().max(120).optional().nullable(),
   status: z.enum(ORDER_STATUSES).optional(),
   scheduledDate: z
     .string()
@@ -81,7 +84,7 @@ function parseOrderBody(body) {
     }
   }
   // Leere Strings aus Formularen als "nicht gesetzt" behandeln
-  for (const key of ['contactPhone', 'scheduledDate', 'startTime', 'endTime', 'notes']) {
+  for (const key of ['contactPhone', 'scheduledDate', 'startTime', 'endTime', 'notes', 'subtype']) {
     if (parsed[key] === '') parsed[key] = null;
   }
   // customerId kommt aus multipart/form-data als String an
@@ -105,6 +108,7 @@ function mapOrder(row) {
     customerId: row.customer_id ?? null,
     seriesId: row.series_id ?? null,
     orderType: row.order_type,
+    subtype: row.subtype ?? null,
     status: row.status,
     scheduledDate: row.scheduled_date,
     startTime: row.start_time,
@@ -400,9 +404,9 @@ ordersRouter.post(
       const info = db
         .prepare(
           `INSERT INTO orders
-             (customer_name, address, contact_phone, customer_id, order_type, status,
+             (customer_name, address, contact_phone, customer_id, order_type, subtype, status,
               scheduled_date, start_time, end_time, notes, created_by)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         )
         .run(
           data.customerName,
@@ -410,6 +414,7 @@ ordersRouter.post(
           data.contactPhone ?? null,
           data.customerId ?? null,
           data.orderType,
+          data.subtype ?? null,
           data.status ?? 'OFFEN',
           data.scheduledDate ?? null,
           data.startTime ?? null,
@@ -452,7 +457,7 @@ ordersRouter.put(
     db.transaction(() => {
       db.prepare(
         `UPDATE orders
-            SET customer_name = ?, address = ?, contact_phone = ?, customer_id = ?, order_type = ?, status = ?,
+            SET customer_name = ?, address = ?, contact_phone = ?, customer_id = ?, order_type = ?, subtype = ?, status = ?,
                 scheduled_date = ?, start_time = ?, end_time = ?, notes = ?, updated_at = ?
           WHERE id = ?`
       ).run(
@@ -461,6 +466,7 @@ ordersRouter.put(
         data.contactPhone ?? null,
         data.customerId ?? null,
         data.orderType,
+        data.subtype ?? null,
         newStatus,
         data.scheduledDate ?? null,
         data.startTime ?? null,
@@ -520,9 +526,9 @@ ordersRouter.post(
       const info = db
         .prepare(
           `INSERT INTO orders
-             (customer_name, address, contact_phone, customer_id, order_type, status,
+             (customer_name, address, contact_phone, customer_id, order_type, subtype, status,
               scheduled_date, start_time, end_time, notes, created_by)
-           VALUES (?, ?, ?, ?, ?, 'OFFEN', ?, ?, ?, ?, ?)`
+           VALUES (?, ?, ?, ?, ?, ?, 'OFFEN', ?, ?, ?, ?, ?)`
         )
         .run(
           source.customer_name,
@@ -530,6 +536,7 @@ ordersRouter.post(
           source.contact_phone,
           source.customer_id,
           source.order_type,
+          source.subtype,
           source.scheduled_date,
           source.start_time,
           source.end_time,

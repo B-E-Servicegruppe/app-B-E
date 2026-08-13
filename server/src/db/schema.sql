@@ -87,9 +87,16 @@ CREATE TABLE IF NOT EXISTS order_series (
   contact_phone TEXT,
   order_type    TEXT    NOT NULL CHECK (order_type IN
                   ('REINIGUNG', 'GARTEN', 'ABRISS', 'WINTERDIENST', 'ENTRUEMPELUNG')),
+  -- Unterart innerhalb der Auftragsart, z. B. "Grundreinigung" bei Reinigung.
+  -- Frei befüllbar (Vorschlagsliste kommt aus dem Frontend), damit neue
+  -- Unterarten keine Code-Änderung erfordern.
+  subtype       TEXT,
   notes         TEXT,
   interval_type TEXT    NOT NULL CHECK (interval_type IN ('WEEKLY', 'BIWEEKLY', 'MONTHLY')),
-  weekday       INTEGER CHECK (weekday BETWEEN 0 AND 6),  -- 0=Montag … 6=Sonntag
+  -- Kommagetrennte Liste von Wochentagen, z. B. "0,3" für Montag+Donnerstag.
+  -- 0=Montag … 6=Sonntag. Nur für WEEKLY/BIWEEKLY genutzt (bei MONTHLY zählt
+  -- stattdessen der Tag im Monat von start_date).
+  weekdays      TEXT,
   start_time    TEXT,
   end_time      TEXT,
   start_date    TEXT    NOT NULL,          -- 'YYYY-MM-DD' – erster Termin
@@ -116,6 +123,9 @@ CREATE TABLE IF NOT EXISTS orders (
   series_id      INTEGER REFERENCES order_series(id) ON DELETE SET NULL,
   order_type     TEXT    NOT NULL CHECK (order_type IN
                    ('REINIGUNG', 'GARTEN', 'ABRISS', 'WINTERDIENST', 'ENTRUEMPELUNG')),
+  -- Unterart innerhalb der Auftragsart, z. B. "Bauendreinigung". Frei
+  -- befüllbar, siehe order_series.subtype weiter oben für die Begründung.
+  subtype        TEXT,
   status         TEXT    NOT NULL DEFAULT 'OFFEN' CHECK (status IN
                    ('OFFEN', 'IN_ARBEIT', 'ERLEDIGT', 'STORNIERT')),
   scheduled_date TEXT,                      -- 'YYYY-MM-DD'

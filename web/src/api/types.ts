@@ -87,6 +87,7 @@ export interface OrderListItem {
   customerId: number | null;
   seriesId: number | null;
   orderType: OrderType;
+  subtype: string | null;
   status: OrderStatus;
   scheduledDate: string | null;
   startTime: string | null;
@@ -140,6 +141,7 @@ export interface OrderInput {
   /** Verweis auf einen gespeicherten Kunden (siehe CustomersPage) */
   customerId?: number | null;
   orderType: OrderType;
+  subtype?: string | null;
   status?: OrderStatus;
   scheduledDate?: string | null;
   startTime?: string | null;
@@ -179,9 +181,11 @@ export interface OrderSeries {
   address: string;
   contactPhone: string | null;
   orderType: OrderType;
+  subtype: string | null;
   notes: string | null;
   intervalType: SeriesInterval;
-  weekday: number | null;
+  /** 0 = Montag … 6 = Sonntag. Ein oder mehrere Wochentage, leer bei MONTHLY. */
+  weekdays: number[];
   startTime: string | null;
   endTime: string | null;
   startDate: string;
@@ -197,10 +201,11 @@ export interface OrderSeriesInput {
   address: string;
   contactPhone?: string | null;
   orderType: OrderType;
+  subtype?: string | null;
   notes?: string | null;
   intervalType: SeriesInterval;
-  /** 0 = Montag … 6 = Sonntag. Bei MONTHLY nicht nötig. */
-  weekday?: number | null;
+  /** 0 = Montag … 6 = Sonntag. Ein oder mehrere Wochentage. Bei MONTHLY nicht nötig. */
+  weekdays?: number[];
   startDate: string;
   endDate: string;
   startTime?: string | null;

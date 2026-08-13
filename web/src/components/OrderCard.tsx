@@ -36,6 +36,7 @@ export function OrderCard({ order, showAssignees }: { order: OrderListItem; show
 
         <div className="order-card__tags">
           <TypeBadge type={order.orderType} />
+          {order.subtype && <span className="muted small">{order.subtype}</span>}
           <span className="order-card__date">
             {formatDateShort(order.scheduledDate)} · {formatTimeRange(order.startTime, order.endTime)}
           </span>

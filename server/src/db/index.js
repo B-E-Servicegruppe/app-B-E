@@ -56,6 +56,23 @@ function migrateAddColumns() {
   if (!orderColumns.includes('series_id')) {
     db.exec('ALTER TABLE orders ADD COLUMN series_id INTEGER REFERENCES order_series(id) ON DELETE SET NULL');
   }
+  if (!orderColumns.includes('subtype')) {
+    db.exec('ALTER TABLE orders ADD COLUMN subtype TEXT');
+  }
+
+  // order_series: weekday (einzelner Wochentag) -> weekdays (Liste, "0,3").
+  // Bestehende Werte werden 1:1 in die neue Spalte übernommen, damit keine
+  // bereits angelegten Serien ihre Wochentags-Angabe verlieren.
+  const seriesColumns = db.prepare('PRAGMA table_info(order_series)').all().map((c) => c.name);
+  if (!seriesColumns.includes('weekdays')) {
+    db.exec('ALTER TABLE order_series ADD COLUMN weekdays TEXT');
+    if (seriesColumns.includes('weekday')) {
+      db.exec("UPDATE order_series SET weekdays = CAST(weekday AS TEXT) WHERE weekday IS NOT NULL");
+    }
+  }
+  if (!seriesColumns.includes('subtype')) {
+    db.exec('ALTER TABLE order_series ADD COLUMN subtype TEXT');
+  }
 
   // Indizes auf die ggf. gerade ergänzten Spalten – bewusst hier und nicht in
   // schema.sql: Dort würden sie auf bestehenden Datenbanken ausgeführt, BEVOR

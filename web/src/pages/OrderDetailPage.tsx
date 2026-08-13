@@ -232,6 +232,7 @@ export function OrderDetailPage() {
               <div className="row row--wrap" style={{ marginBottom: 14 }}>
                 <StatusBadge status={order.status} size={16} />
                 <TypeBadge type={order.orderType} />
+                {order.subtype && <span className="chip chip--type">{order.subtype}</span>}
               </div>
 
               <div className="detail-row">

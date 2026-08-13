@@ -46,6 +46,28 @@ export const TYPE_COLOR: Record<OrderType, string> = {
 };
 
 /**
+ * Vorschläge für die Unterart je Auftragsart (z. B. "Grundreinigung" bei
+ * Reinigung). Reine Komfort-Vorschläge im Formular – das Feld selbst ist
+ * frei befüllbar, neue Unterarten brauchen also keine Code-Änderung.
+ */
+export const ORDER_SUBTYPE_SUGGESTIONS: Record<OrderType, string[]> = {
+  REINIGUNG: [
+    'Unterhaltsreinigung',
+    'Grundreinigung',
+    'Bauendreinigung',
+    'Fensterreinigung',
+    'Treppenhausreinigung',
+    'Büroreinigung',
+  ],
+  GARTEN: ['Rasenmähen', 'Heckenschnitt', 'Laubentfernung', 'Neuanlage', 'Grünschnitt'],
+  ABRISS: ['Entkernung', 'Komplettabriss', 'Schadstoffsanierung'],
+  WINTERDIENST: ['Räumdienst', 'Streudienst'],
+  ENTRUEMPELUNG: ['Haushaltsauflösung', 'Kellerentrümpelung', 'Gewerbeentrümpelung'],
+};
+
+export const WEEKDAY_LABEL_SHORT = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+
+/**
  * Nächster Status im normalen Arbeitsablauf.
  * offen → in Arbeit → erledigt. Danach gibt es keinen Folgeschritt mehr.
  */
