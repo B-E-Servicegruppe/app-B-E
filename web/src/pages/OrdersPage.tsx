@@ -13,8 +13,16 @@ import { ApiError, ordersApi, orderSeriesApi, usersApi } from '../api/client';
 import type { AssignableUser, OrderListItem, OrderSeries } from '../api/types';
 import { PageHeader } from '../components/Layout';
 import { OrderCard } from '../components/OrderCard';
-import { EmptyState, ErrorMessage, Loading, Toast } from '../components/ui';
-import { IconChevronLeft, IconFilter, IconOrders, IconPlus, IconRepeat, IconSearch } from '../components/Icons';
+import { ConfirmDialog, EmptyState, ErrorMessage, Loading, Toast } from '../components/ui';
+import {
+  IconChevronLeft,
+  IconFilter,
+  IconOrders,
+  IconPlus,
+  IconRepeat,
+  IconSearch,
+  IconTrash,
+} from '../components/Icons';
 import { ORDER_STATUSES, ORDER_TYPES, STATUS_LABEL, TYPE_LABEL } from '../utils/labels';
 import './pages.css';
 
@@ -26,6 +34,11 @@ export function OrdersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
+  // Sammel-Löschen: Mehrfachauswahl einzelner (nicht gruppierter) Aufträge
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
   // Meldung z. B. nach dem Anlegen eines wiederkehrenden Auftrags
   const [toast, setToast] = useState<string | null>(
     (location.state as { toast?: string } | null)?.toast ?? null
@@ -153,6 +166,36 @@ export function OrdersPage() {
     setSearchParams({}, { replace: true });
   };
 
+  const toggleSelect = (id: number) => {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const exitSelectMode = () => {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+  };
+
+  const bulkDelete = async () => {
+    setBulkBusy(true);
+    try {
+      const result = await ordersApi.bulkDelete([...selectedIds]);
+      setToast(`${result.deleted} Aufträge gelöscht.`);
+      exitSelectMode();
+      setLoading(true);
+      ordersApi.list(filters).then(setOrders).finally(() => setLoading(false));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Löschen nicht möglich.');
+    } finally {
+      setBulkBusy(false);
+      setConfirmBulkDelete(false);
+    }
+  };
+
   return (
     <>
       {seriesId ? (
@@ -171,12 +214,42 @@ export function OrdersPage() {
           title="Aufträge"
           subtitle={loading ? 'Wird geladen …' : `${orders.length} Aufträge gefunden`}
           actions={
-            <Link to="/auftraege/neu" className="btn">
-              <IconPlus size={18} />
-              Neuer Auftrag
-            </Link>
+            selectMode ? (
+              <button type="button" className="btn btn--ghost" onClick={exitSelectMode}>
+                Auswahl beenden
+              </button>
+            ) : (
+              <div className="row" style={{ gap: 8 }}>
+                <button type="button" className="btn btn--ghost" onClick={() => setSelectMode(true)}>
+                  Auswählen
+                </button>
+                <Link to="/auftraege/neu" className="btn">
+                  <IconPlus size={18} />
+                  Neuer Auftrag
+                </Link>
+              </div>
+            )
           }
         />
+      )}
+
+      {selectMode && (
+        <div className="card" style={{ marginBottom: 16, position: 'sticky', top: 8, zIndex: 5 }}>
+          <div className="card__body row row--wrap" style={{ alignItems: 'center', gap: 12 }}>
+            <span>{selectedIds.size} ausgewählt</span>
+            <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+              <button
+                type="button"
+                className="btn btn--ghost btn--sm"
+                onClick={() => setConfirmBulkDelete(true)}
+                disabled={selectedIds.size === 0}
+              >
+                <IconTrash size={15} />
+                Ausgewählte löschen
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {seriesId && seriesInfo && (
@@ -342,10 +415,29 @@ export function OrdersPage() {
       ) : (
         <div className="order-list">
           {orders.map((order) => (
-            <OrderCard key={order.id} order={order} showAssignees />
+            <OrderCard
+              key={order.id}
+              order={order}
+              showAssignees
+              selectable={selectMode}
+              selected={selectedIds.has(order.id)}
+              onToggleSelect={toggleSelect}
+              linkToDetail={Boolean(seriesId)}
+            />
           ))}
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirmBulkDelete}
+        title="Ausgewählte Aufträge löschen?"
+        message={`${selectedIds.size} Aufträge werden endgültig gelöscht, inklusive zugehöriger Dienstplan-Einträge und Dateien. Das lässt sich nicht rückgängig machen.`}
+        confirmLabel="Löschen"
+        danger
+        busy={bulkBusy}
+        onConfirm={bulkDelete}
+        onCancel={() => setConfirmBulkDelete(false)}
+      />
 
       <Toast message={toast} onDone={() => setToast(null)} />
     </>

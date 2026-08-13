@@ -18,6 +18,22 @@
 }
 .order-card:active { transform: scale(0.995); }
 
+.order-card--selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-100);
+}
+
+.order-card__checkbox {
+  display: flex;
+  align-items: center;
+  padding: 0 0 0 14px;
+}
+.order-card__checkbox input {
+  width: 18px;
+  height: 18px;
+  pointer-events: none;
+}
+
 /* Farbstreifen = Auftragsart */
 .order-card__stripe {
   width: 5px;

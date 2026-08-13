@@ -12,14 +12,50 @@ import { StatusBadge, TypeBadge } from './ui';
 import { IconBox, IconMapPin, IconPaperclip, IconRepeat, IconTeam } from './Icons';
 import './order-card.css';
 
-export function OrderCard({ order, showAssignees }: { order: OrderListItem; showAssignees?: boolean }) {
-  // Eine Serie steht in Listen nur als eine Karte – Klick führt zur Übersicht
-  // aller ihrer Einzeltermine statt direkt zu diesem einen Termin.
-  const isSeriesCard = Boolean(order.seriesId && order.seriesOccurrenceCount);
+export function OrderCard({
+  order,
+  showAssignees,
+  selectable,
+  selected,
+  onToggleSelect,
+  linkToDetail,
+}: {
+  order: OrderListItem;
+  showAssignees?: boolean;
+  /** Mehrfachauswahl aktiv (z. B. zum Sammel-Löschen) – deaktiviert bei gruppierten Serien-Karten. */
+  selectable?: boolean;
+  selected?: boolean;
+  onToggleSelect?: (id: number) => void;
+  /**
+   * Immer zum einzelnen Auftrag verlinken, auch wenn er zu einer Serie
+   * gehört – genutzt in der "Serie: alle Termine"-Ansicht, wo man ja gerade
+   * IN der Serie ist und jeden Termin einzeln öffnen will, statt wieder zur
+   * Serienübersicht zu springen.
+   */
+  linkToDetail?: boolean;
+}) {
+  // Eine Serie steht in normalen Listen nur als eine Karte – Klick führt zur
+  // Übersicht aller ihrer Einzeltermine statt direkt zu diesem einen Termin.
+  const isSeriesCard = !linkToDetail && Boolean(order.seriesId && order.seriesOccurrenceCount);
   const target = isSeriesCard ? `/auftraege?seriesId=${order.seriesId}` : `/auftraege/${order.id}`;
+  const canSelect = selectable && !isSeriesCard;
 
   return (
-    <Link to={target} className="order-card">
+    <Link
+      to={target}
+      className={`order-card${selected ? ' order-card--selected' : ''}`}
+      onClick={(event) => {
+        if (canSelect) {
+          event.preventDefault();
+          onToggleSelect?.(order.id);
+        }
+      }}
+    >
+      {canSelect && (
+        <span className="order-card__checkbox" aria-hidden="true">
+          <input type="checkbox" checked={Boolean(selected)} readOnly tabIndex={-1} />
+        </span>
+      )}
       {/* Farbstreifen zeigt die Auftragsart auf einen Blick */}
       <span className="order-card__stripe" style={{ background: TYPE_COLOR[order.orderType] }} />
 

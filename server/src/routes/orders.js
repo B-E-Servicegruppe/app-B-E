@@ -625,23 +625,50 @@ ordersRouter.put(
 );
 
 // ── Löschen (nur Admin) ──────────────────────────────────────────────────────
+/** Löscht einen Auftrag vollständig (Dateien, Dienstplan-Einträge, Datensatz). */
+function deleteOrderById(id) {
+  const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
+  if (!order) return false;
+
+  const files = db.prepare('SELECT stored_name FROM order_files WHERE order_id = ?').all(id);
+  db.prepare('DELETE FROM shifts WHERE order_id = ?').run(id); // sonst blieben verwaiste Dienstplan-Einträge zurück
+  db.prepare('DELETE FROM orders WHERE id = ?').run(id); // Rest per ON DELETE CASCADE
+  for (const file of files) {
+    fs.rmSync(path.join(config.uploadDir, file.stored_name), { force: true });
+  }
+  return true;
+}
+
 ordersRouter.delete(
   '/:id',
   requireAdmin,
   asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
-    const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
-    if (!order) throw notFound('Auftrag nicht gefunden');
-
-    // Zugehörige Dateien auch von der Platte entfernen
-    const files = db.prepare('SELECT stored_name FROM order_files WHERE order_id = ?').all(id);
-    db.prepare('DELETE FROM shifts WHERE order_id = ?').run(id); // sonst blieben verwaiste Dienstplan-Einträge zurück
-    db.prepare('DELETE FROM orders WHERE id = ?').run(id); // Rest per ON DELETE CASCADE
-    for (const file of files) {
-      fs.rmSync(path.join(config.uploadDir, file.stored_name), { force: true });
-    }
-
+    if (!deleteOrderById(id)) throw notFound('Auftrag nicht gefunden');
     res.json({ ok: true });
+  })
+);
+
+// ── Mehrere Aufträge auf einmal löschen (nur Admin) ──────────────────────────
+// Gedacht z. B. für "Aufräumen" nach dem Beenden einer Serie: die dabei
+// stornierten Einzeltermine sind keiner Serie mehr zugeordnet (siehe
+// order-series.js) und lassen sich hier gesammelt entfernen.
+const bulkDeleteSchema = z.object({
+  ids: z.array(z.number().int().positive()).min(1, 'Bitte mindestens einen Auftrag auswählen').max(500),
+});
+
+ordersRouter.post(
+  '/bulk-delete',
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const { ids } = validate(bulkDeleteSchema, req.body);
+    let deleted = 0;
+    db.transaction(() => {
+      for (const id of new Set(ids)) {
+        if (deleteOrderById(id)) deleted += 1;
+      }
+    })();
+    res.json({ deleted });
   })
 );
 
@@ -818,4 +845,35 @@ ordersRouter.delete(
 );
 
 // Export für andere Module (z. B. Dienstplan) – prüft Zuweisung
-export { isAssignedToOrder, mapOrder, syncShiftsForOrder };
+/**
+ * Gleicht die Dienstplan-Einträge für ALLE bestehenden Aufträge einmal ab.
+ *
+ * Wird beim Serverstart aufgerufen. Grund: Die automatische Synchronisation
+ * (siehe syncShiftsForOrder) greift nur bei einer tatsächlichen Aktion
+ * (Anlegen, Bearbeiten, Statusänderung) – für Aufträge, die schon VOR
+ * Einführung dieser Funktion angelegt wurden, wäre sonst nie ein
+ * Dienstplan-Eintrag entstanden, weil an ihnen seither nichts mehr geändert
+ * wurde. syncShiftsForOrder selbst ist "idempotent" (legt nur an/ändert nur,
+ * was wirklich nötig ist), daher ist ein Aufruf für jeden Auftrag bei jedem
+ * Serverstart unbedenklich – bei ein paar hundert Aufträgen dauert das nur
+ * einen Sekundenbruchteil.
+ */
+function backfillShiftsForExistingOrders() {
+  const orderIds = db
+    .prepare(
+      `SELECT id FROM orders
+        WHERE scheduled_date IS NOT NULL
+          AND status != 'STORNIERT'
+          AND id IN (SELECT DISTINCT order_id FROM order_assignments)`
+    )
+    .all()
+    .map((r) => r.id);
+  for (const id of orderIds) {
+    syncShiftsForOrder(id);
+  }
+  if (orderIds.length) {
+    console.log(`[shifts] Dienstplan-Abgleich beim Start: ${orderIds.length} Aufträge geprüft.`);
+  }
+}
+
+export { isAssignedToOrder, mapOrder, syncShiftsForOrder, backfillShiftsForExistingOrders };

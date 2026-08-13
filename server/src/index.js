@@ -17,7 +17,7 @@ import cors from 'cors';
 import { config, ROOT_DIR } from './config.js';
 import { applySchema, db } from './db/index.js';
 import { authRouter } from './routes/auth.js';
-import { ordersRouter } from './routes/orders.js';
+import { ordersRouter, backfillShiftsForExistingOrders } from './routes/orders.js';
 import { usersRouter } from './routes/users.js';
 import { shiftsRouter } from './routes/shifts.js';
 import { filesRouter } from './routes/files.js';
@@ -26,6 +26,9 @@ import { orderSeriesRouter } from './routes/order-series.js';
 import { errorHandler, notFoundHandler } from './middleware/error.js';
 
 applySchema();
+// Dienstplan-Einträge für bereits bestehende Aufträge einmal nachziehen
+// (siehe Begründung direkt bei der Funktion in routes/orders.js).
+backfillShiftsForExistingOrders();
 
 const app = express();
 

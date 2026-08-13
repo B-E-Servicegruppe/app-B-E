@@ -211,6 +211,10 @@ export const ordersApi = {
 
   remove: (id: number) => request<{ ok: true }>(`/api/orders/${id}`, { method: 'DELETE' }),
 
+  /** Mehrere Aufträge auf einmal löschen (z. B. Aufräumen nach Serie beenden). */
+  bulkDelete: (ids: number[]) =>
+    request<{ deleted: number }>('/api/orders/bulk-delete', { method: 'POST', body: { ids } }),
+
   duplicate: (id: number) =>
     request<{ order: OrderListItem }>(`/api/orders/${id}/duplicate`, { method: 'POST' }).then(
       (r) => r.order
