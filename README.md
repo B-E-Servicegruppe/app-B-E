@@ -122,6 +122,18 @@ Geprüft wird das automatisiert (siehe [Tests](#tests)).
 - Beim Speichern werden sofort alle Einzeltermine bis zum gewählten Enddatum
   als eigenständige Aufträge angelegt (maximal 2 Jahre im Voraus) – bewusst
   ohne Hintergrundjob, damit jeder Termin sofort sichtbar und planbar ist
+- **Ohne festes Enddatum („bis auf Weiteres"):** Häkchen „Kein Enddatum" im
+  Formular – es werden zunächst Termine für ein Jahr angelegt. In der
+  Serienansicht lässt sich die Serie danach per Klick auf „Weitere Termine
+  anlegen" (`POST /api/order-series/:id/extend`) beliebig oft um je ein
+  weiteres Jahr verlängern – im selben Rhythmus, mit denselben zugewiesenen
+  Mitarbeitern und ohne doppelte Termine
+- **Gruppierte Darstellung:** In Auftragsliste und Übersicht erscheint eine
+  Serie nur als **eine** Karte („Wiederkehrend · N Termine"), vertreten durch
+  den nächsten anstehenden Termin; auch die Kennzahlen im Dashboard zählen
+  eine Serie als einen Auftrag, damit 50 Wochentermine eines Kunden die
+  Zahlen nicht verzerren. Klick auf die Karte öffnet alle Einzeltermine der
+  Serie – dort sitzen auch „Weitere Termine anlegen" und „Serie beenden"
 - Jeder Termin ist danach ein ganz normaler Auftrag: einzeln bearbeitbar,
   verschiebbar, zuweisbar oder stornierbar, ohne die übrigen zu beeinflussen
 - Serie beenden (`DELETE /api/order-series/:id`) storniert nur die noch
@@ -151,9 +163,19 @@ Geprüft wird das automatisiert (siehe [Tests](#tests)).
 
 ### Dienstplan
 - Kalender mit Wochen- und Monatsumschaltung
-- Administration: Einträge anlegen, bearbeiten, löschen; per Drag & Drop auf
-  andere Tage ziehen; direkt mit einem Auftrag verknüpfbar (Termin und
+- **Automatische Synchronisation mit den Aufträgen:** Sobald ein Auftrag
+  einen Termin und zugewiesene Mitarbeiter hat, erscheint er von selbst im
+  Dienstplan – je Mitarbeiter ein Eintrag. Terminänderungen verschieben den
+  Eintrag mit, eine Umverteilung wechselt den Mitarbeiter, Stornieren oder
+  Löschen entfernt ihn (Reaktivieren legt ihn wieder an). Das gilt auch für
+  alle Termine einer Serie
+- Administration: zusätzlich freie Einträge anlegen (z. B. Urlaub,
+  Werkstatt, Bereitschaft), bearbeiten, löschen; per Drag & Drop auf andere
+  Tage ziehen; auch manuell mit einem Auftrag verknüpfbar (Termin und
   Zeitfenster werden dann übernommen)
+- Hinweis: Auftragsgebundene Einträge verwaltet die Synchronisation – wer im
+  Dienstplan zusätzlich eingeplant werden soll, wird am besten direkt dem
+  Auftrag zugewiesen. Freie Einträge ohne Auftragsbezug bleiben unangetastet
 - Mitarbeiter: sieht ausschließlich die eigene Einteilung, ohne Bearbeitung
 - Farbliche Kennzeichnung wahlweise nach Auftragsart oder Status
 
@@ -194,14 +216,14 @@ vorhandene Daten bleiben dabei unverändert.
 | `users` | Benutzerkonten: Name, E-Mail, Passwort-Hash, Rolle (`ADMIN`/`EMPLOYEE`), Telefon, private E-Mail (für Passwort-Reset), aktiv/deaktiviert |
 | `password_reset_tokens` | Tokens für „Passwort vergessen" (nur als Hash gespeichert, mit Ablaufzeit) |
 | `customers` | Wiederverwendbare Kunden-/Objektstammdaten für die Auswahl im Auftragsformular |
-| `order_series` | Vorlagen für wiederkehrende Aufträge: Intervall, ein oder mehrere Wochentage, Unterart, Zeitraum, Zeitfenster |
+| `order_series` | Vorlagen für wiederkehrende Aufträge: Intervall, ein oder mehrere Wochentage, Unterart, Zeitraum, Zeitfenster; `open_ended` kennzeichnet Serien ohne festes Enddatum (endDate ist dann nur der aktuelle Terminhorizont), `assignee_ids` merkt sich die Zuweisungen fürs Verlängern |
 | `orders` | Aufträge: Kunde, Adresse, Auftragsart, Unterart, Status, Termin, Zeitfenster, Notizen; optional mit Verweis auf `customers` und die erzeugende `order_series` |
 | `order_assignments` | Zuweisung Auftrag ↔ Mitarbeiter (n:m). **Grundlage der Rechteprüfung** |
 | `order_materials` | Materialpositionen je Auftrag, zugleich Checkliste (`done`) |
 | `order_files` | Hochgeladene PDFs/Bilder: `ATTACHMENT` (vom Admin) oder `PROOF_PHOTO` (Nachweis vom Mitarbeiter) |
 | `order_status_history` | Lückenlose Statushistorie: von → nach, wer, wann |
 | `order_comments` | Rückmeldungen zwischen Mitarbeiter und Administration |
-| `shifts` | Dienstplan-Einträge: Mitarbeiter, Datum, Zeitfenster, optional mit Auftrag verknüpft |
+| `shifts` | Dienstplan-Einträge: Mitarbeiter, Datum, Zeitfenster, optional mit Auftrag verknüpft. Auftragsgebundene Einträge werden automatisch mit Termin, Status und Zuweisungen des Auftrags synchron gehalten (`syncShiftsForOrder` in `server/src/routes/orders.js`); freie Einträge (Urlaub, Werkstatt …) verwaltet die Administration von Hand |
 
 Ein Auftrag kann mehreren Mitarbeitern zugewiesen sein und ein Mitarbeiter
 mehreren Aufträgen. Genau über `order_assignments` entscheidet der Server, ob
