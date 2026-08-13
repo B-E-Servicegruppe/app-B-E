@@ -100,7 +100,16 @@ CREATE TABLE IF NOT EXISTS order_series (
   start_time    TEXT,
   end_time      TEXT,
   start_date    TEXT    NOT NULL,          -- 'YYYY-MM-DD' – erster Termin
-  end_date      TEXT    NOT NULL,          -- 'YYYY-MM-DD' – letzter möglicher Termin
+  end_date      TEXT    NOT NULL,          -- 'YYYY-MM-DD' – aktueller Terminhorizont
+  -- Läuft die Serie ohne festes Enddatum ("bis auf Weiteres")? end_date
+  -- enthält dann trotzdem einen konkreten Wert (den aktuell erzeugten
+  -- Horizont, siehe order-series.js), damit keine NULL-Sonderfälle in der
+  -- Terminberechnung nötig sind. Die Serie kann über /extend beliebig oft um
+  -- weitere Zeiträume verlängert werden.
+  open_ended    INTEGER NOT NULL DEFAULT 0 CHECK (open_ended IN (0, 1)),
+  -- Kommagetrennte Mitarbeiter-IDs, die bei Anlage zugewiesen wurden – wird
+  -- beim Verlängern (/extend) erneut auf die neu erzeugten Termine angewendet.
+  assignee_ids  TEXT,
   created_by    INTEGER REFERENCES users(id) ON DELETE SET NULL,
   created_at    TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );

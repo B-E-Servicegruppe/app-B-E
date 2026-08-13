@@ -98,6 +98,8 @@ export interface OrderListItem {
   assignees: Assignee[];
   materialCount: number;
   fileCount: number;
+  /** Nur gesetzt, wenn dieser Eintrag eine gruppierte Serie repräsentiert. */
+  seriesOccurrenceCount?: number;
 }
 
 /** Auftrag in der Detailansicht (mit allen Unterdaten) */
@@ -190,6 +192,8 @@ export interface OrderSeries {
   endTime: string | null;
   startDate: string;
   endDate: string;
+  /** Läuft ohne festes Enddatum ("bis auf Weiteres") – endDate ist dann nur der aktuelle Terminhorizont. */
+  openEnded: boolean;
   createdAt: string;
   /** Anzahl der bereits erzeugten Einzeltermine */
   occurrenceCount: number;
@@ -207,7 +211,8 @@ export interface OrderSeriesInput {
   /** 0 = Montag … 6 = Sonntag. Ein oder mehrere Wochentage. Bei MONTHLY nicht nötig. */
   weekdays?: number[];
   startDate: string;
-  endDate: string;
+  /** Weglassen = Serie läuft ohne festes Enddatum ("bis auf Weiteres"). */
+  endDate?: string | null;
   startTime?: string | null;
   endTime?: string | null;
   assigneeIds?: number[];

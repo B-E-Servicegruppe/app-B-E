@@ -72,6 +72,7 @@ export function OrderFormPage() {
   const [intervalType, setIntervalType] = useState<SeriesInterval>('WEEKLY');
   const [weekdays, setWeekdays] = useState<number[]>([]);
   const [seriesEndDate, setSeriesEndDate] = useState('');
+  const [seriesOpenEnded, setSeriesOpenEnded] = useState(false);
 
   const toggleWeekday = (day: number) => {
     setWeekdays((current) =>
@@ -200,7 +201,7 @@ export function OrderFormPage() {
           intervalType,
           weekdays: intervalType === 'MONTHLY' ? [] : weekdays,
           startDate: scheduledDate,
-          endDate: seriesEndDate,
+          endDate: seriesOpenEnded ? null : seriesEndDate,
           startTime: startTime || null,
           endTime: endTime || null,
           assigneeIds,
@@ -483,16 +484,35 @@ export function OrderFormPage() {
                     )}
 
                     <div className="field" style={{ marginBottom: 0 }}>
-                      <label htmlFor="seriesEnd">Wiederholen bis (Enddatum) *</label>
-                      <input
-                        id="seriesEnd"
-                        className="input"
-                        type="date"
-                        value={seriesEndDate}
-                        onChange={(event) => setSeriesEndDate(event.target.value)}
-                        required={recurring}
-                      />
-                      {fieldErrors.endDate && <p className="field__error">{fieldErrors.endDate}</p>}
+                      <label className="check-item" style={{ marginBottom: seriesOpenEnded ? 8 : 0 }}>
+                        <input
+                          type="checkbox"
+                          checked={seriesOpenEnded}
+                          onChange={(event) => setSeriesOpenEnded(event.target.checked)}
+                        />
+                        <span>Kein Enddatum (läuft bis auf Weiteres)</span>
+                      </label>
+
+                      {seriesOpenEnded ? (
+                        <p className="field__hint" style={{ margin: 0 }}>
+                          Es werden zunächst Termine für ein Jahr im Voraus angelegt. Danach lässt
+                          sich die Serie in der Auftragsliste jederzeit um ein weiteres Jahr
+                          verlängern.
+                        </p>
+                      ) : (
+                        <>
+                          <label htmlFor="seriesEnd">Wiederholen bis (Enddatum) *</label>
+                          <input
+                            id="seriesEnd"
+                            className="input"
+                            type="date"
+                            value={seriesEndDate}
+                            onChange={(event) => setSeriesEndDate(event.target.value)}
+                            required={recurring && !seriesOpenEnded}
+                          />
+                          {fieldErrors.endDate && <p className="field__error">{fieldErrors.endDate}</p>}
+                        </>
+                      )}
                     </div>
                   </div>
                 )}

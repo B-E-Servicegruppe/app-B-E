@@ -30,7 +30,7 @@ export function DashboardPage() {
     Promise.all([
       ordersApi.stats(),
       ordersApi.list({ scope: 'today', today: today() }),
-      ordersApi.list({ from: today(), status: 'OFFEN' }),
+      ordersApi.list({ from: today(), status: 'OFFEN', group: 'series' }),
     ])
       .then(([statsData, todayData, upcomingData]) => {
         setStats(statsData);

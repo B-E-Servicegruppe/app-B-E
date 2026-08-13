@@ -9,12 +9,12 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
-import { ordersApi, usersApi } from '../api/client';
-import type { AssignableUser, OrderListItem } from '../api/types';
+import { ApiError, ordersApi, orderSeriesApi, usersApi } from '../api/client';
+import type { AssignableUser, OrderListItem, OrderSeries } from '../api/types';
 import { PageHeader } from '../components/Layout';
 import { OrderCard } from '../components/OrderCard';
 import { EmptyState, ErrorMessage, Loading, Toast } from '../components/ui';
-import { IconFilter, IconOrders, IconPlus, IconSearch } from '../components/Icons';
+import { IconChevronLeft, IconFilter, IconOrders, IconPlus, IconRepeat, IconSearch } from '../components/Icons';
 import { ORDER_STATUSES, ORDER_TYPES, STATUS_LABEL, TYPE_LABEL } from '../utils/labels';
 import './pages.css';
 
@@ -31,6 +31,59 @@ export function OrdersPage() {
     (location.state as { toast?: string } | null)?.toast ?? null
   );
 
+  // Ist eine bestimmte Serie ausgewählt (Klick auf eine Serien-Karte), zeigen
+  // wir statt der normalen gruppierten Liste alle ihre Einzeltermine.
+  const seriesId = searchParams.get('seriesId');
+  const [seriesInfo, setSeriesInfo] = useState<OrderSeries | null>(null);
+  const [seriesBusy, setSeriesBusy] = useState(false);
+
+  useEffect(() => {
+    if (!seriesId) {
+      setSeriesInfo(null);
+      return;
+    }
+    orderSeriesApi.get(Number(seriesId)).then(setSeriesInfo).catch(() => setSeriesInfo(null));
+  }, [seriesId]);
+
+  const extendSeries = async () => {
+    if (!seriesId) return;
+    setSeriesBusy(true);
+    try {
+      const result = await orderSeriesApi.extend(Number(seriesId));
+      setSeriesInfo(result.series);
+      setToast(
+        result.createdOrders > 0
+          ? `${result.createdOrders} weitere Termine wurden angelegt.`
+          : 'Für den erweiterten Zeitraum ergab sich kein neuer Termin.'
+      );
+      setLoading(true);
+      ordersApi.list({ seriesId: Number(seriesId) }).then(setOrders).finally(() => setLoading(false));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Verlängern nicht möglich.');
+    } finally {
+      setSeriesBusy(false);
+    }
+  };
+
+  const endSeries = async () => {
+    if (!seriesId) return;
+    if (!confirm('Serie beenden? Noch offene, zukünftige Termine werden storniert. Bereits erledigte oder laufende bleiben erhalten.')) {
+      return;
+    }
+    setSeriesBusy(true);
+    try {
+      await orderSeriesApi.remove(Number(seriesId));
+      setToast('Serie beendet.');
+      setSeriesInfo((info) => (info ? { ...info, openEnded: false } : info));
+      setLoading(true);
+      ordersApi.list({ seriesId: Number(seriesId) }).then(setOrders).finally(() => setLoading(false));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Serie konnte nicht beendet werden.');
+    } finally {
+      setSeriesBusy(false);
+    }
+  };
+
   // Freitextsuche wird verzögert an den Server geschickt (siehe useEffect unten)
   const [searchInput, setSearchInput] = useState(searchParams.get('q') ?? '');
 
@@ -43,8 +96,14 @@ export function OrdersPage() {
       from: searchParams.get('from') ?? '',
       to: searchParams.get('to') ?? '',
       q: searchParams.get('q') ?? '',
+      seriesId: seriesId ? Number(seriesId) : undefined,
+      // Ohne aktive Serienauswahl fassen wir wiederkehrende Aufträge zu einer
+      // Karte zusammen; bei einer ausgewählten Serie wollen wir ja gerade
+      // ALLE ihre Termine einzeln sehen (das macht der Server automatisch,
+      // group wird dann serverseitig ignoriert – schadet aber nicht).
+      group: 'series' as const,
     }),
-    [searchParams]
+    [searchParams, seriesId]
   );
 
   const activeFilterCount = [
@@ -96,16 +155,50 @@ export function OrdersPage() {
 
   return (
     <>
-      <PageHeader
-        title="Aufträge"
-        subtitle={loading ? 'Wird geladen …' : `${orders.length} Aufträge gefunden`}
-        actions={
-          <Link to="/auftraege/neu" className="btn">
-            <IconPlus size={18} />
-            Neuer Auftrag
-          </Link>
-        }
-      />
+      {seriesId ? (
+        <PageHeader
+          title={seriesInfo ? `Serie: ${seriesInfo.customerName}` : 'Serie: alle Termine'}
+          subtitle={loading ? 'Wird geladen …' : `${orders.length} Termine`}
+          actions={
+            <Link to="/auftraege" className="btn btn--ghost">
+              <IconChevronLeft size={18} />
+              Zu allen Aufträgen
+            </Link>
+          }
+        />
+      ) : (
+        <PageHeader
+          title="Aufträge"
+          subtitle={loading ? 'Wird geladen …' : `${orders.length} Aufträge gefunden`}
+          actions={
+            <Link to="/auftraege/neu" className="btn">
+              <IconPlus size={18} />
+              Neuer Auftrag
+            </Link>
+          }
+        />
+      )}
+
+      {seriesId && seriesInfo && (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div className="card__body row row--wrap" style={{ alignItems: 'center', gap: 12 }}>
+            <span className="chip chip--type">
+              <IconRepeat size={13} /> {seriesInfo.openEnded ? 'Läuft ohne Enddatum' : 'Läuft bis ' + seriesInfo.endDate}
+            </span>
+            <span className="muted small">{seriesInfo.address}</span>
+            <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+              {seriesInfo.openEnded && (
+                <button type="button" className="btn btn--ghost btn--sm" onClick={extendSeries} disabled={seriesBusy}>
+                  Weitere Termine anlegen
+                </button>
+              )}
+              <button type="button" className="btn btn--ghost btn--sm" onClick={endSeries} disabled={seriesBusy}>
+                Serie beenden
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <ErrorMessage error={error} />
 

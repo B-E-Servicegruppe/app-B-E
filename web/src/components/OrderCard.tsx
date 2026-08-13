@@ -9,12 +9,17 @@ import type { OrderListItem } from '../api/types';
 import { TYPE_COLOR } from '../utils/labels';
 import { formatDateShort, formatTimeRange } from '../utils/date';
 import { StatusBadge, TypeBadge } from './ui';
-import { IconBox, IconMapPin, IconPaperclip, IconTeam } from './Icons';
+import { IconBox, IconMapPin, IconPaperclip, IconRepeat, IconTeam } from './Icons';
 import './order-card.css';
 
 export function OrderCard({ order, showAssignees }: { order: OrderListItem; showAssignees?: boolean }) {
+  // Eine Serie steht in Listen nur als eine Karte – Klick führt zur Übersicht
+  // aller ihrer Einzeltermine statt direkt zu diesem einen Termin.
+  const isSeriesCard = Boolean(order.seriesId && order.seriesOccurrenceCount);
+  const target = isSeriesCard ? `/auftraege?seriesId=${order.seriesId}` : `/auftraege/${order.id}`;
+
   return (
-    <Link to={`/auftraege/${order.id}`} className="order-card">
+    <Link to={target} className="order-card">
       {/* Farbstreifen zeigt die Auftragsart auf einen Blick */}
       <span className="order-card__stripe" style={{ background: TYPE_COLOR[order.orderType] }} />
 
@@ -22,7 +27,9 @@ export function OrderCard({ order, showAssignees }: { order: OrderListItem; show
         <div className="order-card__top">
           <div className="order-card__title">
             <h3>{order.customerName}</h3>
-            <span className="muted small">Auftrag #{order.id}</span>
+            <span className="muted small">
+              {isSeriesCard ? `Wiederkehrend · ${order.seriesOccurrenceCount} Termine` : `Auftrag #${order.id}`}
+            </span>
           </div>
           <StatusBadge status={order.status} />
         </div>
@@ -37,7 +44,13 @@ export function OrderCard({ order, showAssignees }: { order: OrderListItem; show
         <div className="order-card__tags">
           <TypeBadge type={order.orderType} />
           {order.subtype && <span className="muted small">{order.subtype}</span>}
+          {isSeriesCard && (
+            <span className="order-card__meta-item">
+              <IconRepeat size={13} />
+            </span>
+          )}
           <span className="order-card__date">
+            {isSeriesCard ? 'Nächster Termin: ' : ''}
             {formatDateShort(order.scheduledDate)} · {formatTimeRange(order.startTime, order.endTime)}
           </span>
         </div>

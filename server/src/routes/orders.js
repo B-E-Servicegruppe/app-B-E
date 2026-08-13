@@ -223,6 +223,66 @@ function replaceAssignees(orderId, assigneeIds = []) {
   }
 }
 
+/**
+ * Hält die Dienstplan-Einträge (shifts) eines Auftrags automatisch mit
+ * dessen Termin und zugewiesenen Mitarbeitern synchron. Dadurch taucht ein
+ * Auftrag von selbst im Dienstplan auf – sowohl bei der Administration
+ * (die alles sieht) als auch beim jeweils zuständigen Mitarbeiter (der nur
+ * seine eigenen Einträge sieht) – ohne dass dafür ein separater,
+ * manuell angelegter Dienstplan-Eintrag nötig wäre.
+ *
+ * Ohne Termin oder storniert: alle zugehörigen Einträge werden entfernt
+ * (kein Einsatz an diesem Tag). Ansonsten wird je zugewiesenem Mitarbeiter
+ * genau ein Eintrag gehalten – neu angelegt, aktualisiert (bei Termin-
+ * Änderung) oder entfernt (bei Abwahl), je nachdem was nötig ist.
+ */
+function syncShiftsForOrder(orderId, createdBy) {
+  const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
+  if (!order) return;
+
+  if (!order.scheduled_date || order.status === 'STORNIERT') {
+    db.prepare('DELETE FROM shifts WHERE order_id = ?').run(orderId);
+    return;
+  }
+
+  const assigneeIds = db
+    .prepare('SELECT user_id FROM order_assignments WHERE order_id = ?')
+    .all(orderId)
+    .map((r) => r.user_id);
+  const desired = new Set(assigneeIds);
+
+  const existingShifts = db.prepare('SELECT * FROM shifts WHERE order_id = ?').all(orderId);
+  const existingByUser = new Map(existingShifts.map((s) => [s.user_id, s]));
+
+  // Nicht mehr zugewiesene Mitarbeiter: Eintrag entfernen
+  for (const shift of existingShifts) {
+    if (!desired.has(shift.user_id)) {
+      db.prepare('DELETE FROM shifts WHERE id = ?').run(shift.id);
+    }
+  }
+
+  const insert = db.prepare(
+    `INSERT INTO shifts (user_id, order_id, date, start_time, end_time, created_by)
+     VALUES (?, ?, ?, ?, ?, ?)`
+  );
+  const update = db.prepare(
+    `UPDATE shifts SET date = ?, start_time = ?, end_time = ?, updated_at = ? WHERE id = ?`
+  );
+
+  for (const userId of assigneeIds) {
+    const existing = existingByUser.get(userId);
+    if (!existing) {
+      insert.run(userId, orderId, order.scheduled_date, order.start_time, order.end_time, createdBy ?? order.created_by);
+    } else if (
+      existing.date !== order.scheduled_date ||
+      existing.start_time !== order.start_time ||
+      existing.end_time !== order.end_time
+    ) {
+      update.run(order.scheduled_date, order.start_time, order.end_time, now(), existing.id);
+    }
+  }
+}
+
 /** Speichert Upload-Metadaten zu einem Auftrag. */
 function saveFiles(orderId, files, userId, kind) {
   const insert = db.prepare(
@@ -287,6 +347,13 @@ ordersRouter.get(
       params.push(term, term, term, String(req.query.q).trim());
     }
 
+    // Einzelne Serie im Detail ansehen (alle ihre Termine, ungruppiert) –
+    // genutzt von der "Serie: alle Termine"-Ansicht im Frontend.
+    if (req.query.seriesId) {
+      where.push('o.series_id = ?');
+      params.push(Number(req.query.seriesId));
+    }
+
     const rows = db
       .prepare(
         `SELECT o.* FROM orders o
@@ -299,19 +366,75 @@ ordersRouter.get(
       )
       .all(...params);
 
+    // Wiederkehrende Aufträge gruppieren: Statt jeden einzelnen Termin als
+    // eigene Karte zu zeigen, steht eine Serie in der Liste nur einmal (der
+    // nächste anstehende – oder falls keiner mehr ansteht, der letzte –
+    // Termin repräsentiert sie). Wird übersprungen, wenn ohnehin schon nach
+    // einer bestimmten Serie gefiltert wird (dort will man ja gerade ALLE
+    // Termine einzeln sehen).
+    const groupSeries = (req.query.group === 'series') && !req.query.seriesId;
+    const displayRows = groupSeries ? groupBySeries(rows) : rows;
+
     res.json({
-      orders: rows.map((row) => ({
-        ...mapOrder(row),
-        assignees: getAssignees(row.id),
-        materialCount: db
-          .prepare('SELECT COUNT(*) AS c FROM order_materials WHERE order_id = ?')
-          .get(row.id).c,
-        fileCount: db.prepare('SELECT COUNT(*) AS c FROM order_files WHERE order_id = ?').get(row.id)
-          .c,
-      })),
+      orders: displayRows.map((row) => {
+        const base = {
+          ...mapOrder(row),
+          assignees: getAssignees(row.id),
+          materialCount: db
+            .prepare('SELECT COUNT(*) AS c FROM order_materials WHERE order_id = ?')
+            .get(row.id).c,
+          fileCount: db.prepare('SELECT COUNT(*) AS c FROM order_files WHERE order_id = ?').get(row.id)
+            .c,
+        };
+        if (row.series_id) {
+          base.seriesOccurrenceCount = db
+            .prepare('SELECT COUNT(*) AS c FROM orders WHERE series_id = ?')
+            .get(row.series_id).c;
+        }
+        return base;
+      }),
     });
   })
 );
+
+/**
+ * Fasst Aufträge, die zur selben Serie gehören, zu einem repräsentativen
+ * Eintrag zusammen: bevorzugt der nächste noch offene/anstehende Termin,
+ * sonst der zeitlich letzte innerhalb der aktuellen Filterauswahl.
+ * Eigenständige (nicht-wiederkehrende) Aufträge bleiben unverändert.
+ */
+function groupBySeries(rows) {
+  const standalone = rows.filter((r) => !r.series_id);
+  const bySeriesId = new Map();
+  for (const r of rows) {
+    if (!r.series_id) continue;
+    if (!bySeriesId.has(r.series_id)) bySeriesId.set(r.series_id, []);
+    bySeriesId.get(r.series_id).push(r);
+  }
+
+  const todayStr = localDateString(new Date());
+  const representatives = [];
+  for (const group of bySeriesId.values()) {
+    const upcoming = group
+      .filter((r) => r.status !== 'STORNIERT' && r.scheduled_date && r.scheduled_date >= todayStr)
+      .sort((a, b) => (a.scheduled_date || '').localeCompare(b.scheduled_date || ''));
+    const rep =
+      upcoming[0] ||
+      [...group].sort((a, b) => (b.scheduled_date || '').localeCompare(a.scheduled_date || ''))[0];
+    representatives.push(rep);
+  }
+
+  return [...standalone, ...representatives].sort((a, b) => {
+    const aNull = a.scheduled_date === null;
+    const bNull = b.scheduled_date === null;
+    if (aNull !== bNull) return aNull ? 1 : -1;
+    const dateCompare = (a.scheduled_date || '').localeCompare(b.scheduled_date || '');
+    if (dateCompare !== 0) return dateCompare;
+    const timeCompare = (a.start_time || '').localeCompare(b.start_time || '');
+    if (timeCompare !== 0) return timeCompare;
+    return b.id - a.id;
+  });
+}
 
 /**
  * Übersetzt scope=today|week bzw. from/to in einen Datumsbereich.
@@ -353,14 +476,19 @@ ordersRouter.get(
       : 'WHERE id IN (SELECT order_id FROM order_assignments WHERE user_id = ?)';
     const params = isAdmin(req.user) ? [] : [req.user.id];
 
-    const rows = db
-      .prepare(`SELECT status, COUNT(*) AS count FROM orders ${scopeSql} GROUP BY status`)
-      .all(...params);
+    // Alle Aufträge laden und wie in der Liste gruppieren: eine Serie zählt
+    // als EIN Auftrag, nicht als N Einzeltermine – sonst würden 50
+    // wöchentliche Termine eines einzigen Kunden die Kennzahlen komplett
+    // verzerren.
+    const allRows = db.prepare(`SELECT * FROM orders ${scopeSql}`).all(...params);
+    const grouped = groupBySeries(allRows);
 
     const byStatus = Object.fromEntries(ORDER_STATUSES.map((s) => [s, 0]));
-    for (const row of rows) byStatus[row.status] = row.count;
+    for (const row of grouped) byStatus[row.status] += 1;
 
     const today = localDateString(new Date());
+    // "Heute im Einsatz" bleibt bewusst ungruppiert – das ist echte, an
+    // diesem Tag anfallende Arbeit, nicht die Anzahl verschiedener Kunden.
     const todayCount = db
       .prepare(
         `SELECT COUNT(*) AS c FROM orders
@@ -370,7 +498,7 @@ ordersRouter.get(
       )
       .get(...[today, ...params]).c;
 
-    res.json({ byStatus, total: rows.reduce((sum, r) => sum + r.count, 0), today: todayCount });
+    res.json({ byStatus, total: grouped.length, today: todayCount });
   })
 );
 
@@ -433,6 +561,8 @@ ordersRouter.post(
         'INSERT INTO order_status_history (order_id, from_status, to_status, changed_by) VALUES (?, NULL, ?, ?)'
       ).run(id, data.status ?? 'OFFEN', req.user.id);
 
+      syncShiftsForOrder(id, req.user.id);
+
       return id;
     })();
 
@@ -485,6 +615,8 @@ ordersRouter.put(
           'INSERT INTO order_status_history (order_id, from_status, to_status, changed_by) VALUES (?, ?, ?, ?)'
         ).run(id, existing.status, newStatus, req.user.id);
       }
+
+      syncShiftsForOrder(id, req.user.id);
     })();
 
     const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
@@ -503,6 +635,7 @@ ordersRouter.delete(
 
     // Zugehörige Dateien auch von der Platte entfernen
     const files = db.prepare('SELECT stored_name FROM order_files WHERE order_id = ?').all(id);
+    db.prepare('DELETE FROM shifts WHERE order_id = ?').run(id); // sonst blieben verwaiste Dienstplan-Einträge zurück
     db.prepare('DELETE FROM orders WHERE id = ?').run(id); // Rest per ON DELETE CASCADE
     for (const file of files) {
       fs.rmSync(path.join(config.uploadDir, file.stored_name), { force: true });
@@ -591,6 +724,10 @@ ordersRouter.patch(
         db.prepare(
           'INSERT INTO order_status_history (order_id, from_status, to_status, changed_by) VALUES (?, ?, ?, ?)'
         ).run(order.id, order.status, status, req.user.id);
+        // Storniert -> Dienstplan-Einträge entfernen (kein Einsatz mehr an
+        // diesem Tag); von storniert zurückgeändert -> Einträge automatisch
+        // wieder anlegen.
+        syncShiftsForOrder(order.id, req.user.id);
       })();
     }
 
@@ -681,4 +818,4 @@ ordersRouter.delete(
 );
 
 // Export für andere Module (z. B. Dienstplan) – prüft Zuweisung
-export { isAssignedToOrder, mapOrder };
+export { isAssignedToOrder, mapOrder, syncShiftsForOrder };

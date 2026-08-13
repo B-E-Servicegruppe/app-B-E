@@ -73,6 +73,12 @@ function migrateAddColumns() {
   if (!seriesColumns.includes('subtype')) {
     db.exec('ALTER TABLE order_series ADD COLUMN subtype TEXT');
   }
+  if (!seriesColumns.includes('open_ended')) {
+    db.exec('ALTER TABLE order_series ADD COLUMN open_ended INTEGER NOT NULL DEFAULT 0');
+  }
+  if (!seriesColumns.includes('assignee_ids')) {
+    db.exec('ALTER TABLE order_series ADD COLUMN assignee_ids TEXT');
+  }
 
   // Indizes auf die ggf. gerade ergänzten Spalten – bewusst hier und nicht in
   // schema.sql: Dort würden sie auf bestehenden Datenbanken ausgeführt, BEVOR

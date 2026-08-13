@@ -165,6 +165,10 @@ export interface OrderFilters {
   /** heutiges Datum aus Sicht des Geräts (für korrekte Zeitzone) */
   today?: string;
   q?: string;
+  /** 'series' = wiederkehrende Aufträge zu einer Karte zusammenfassen */
+  group?: 'series';
+  /** Alle Termine EINER bestimmten Serie anzeigen (ungruppiert) */
+  seriesId?: number;
 }
 
 export const ordersApi = {
@@ -342,10 +346,19 @@ export const customersApi = {
 export const orderSeriesApi = {
   list: () => request<{ series: OrderSeries[] }>('/api/order-series').then((r) => r.series),
 
+  get: (id: number) =>
+    request<{ series: OrderSeries }>(`/api/order-series/${id}`).then((r) => r.series),
+
   create: (input: OrderSeriesInput) =>
     request<{ series: OrderSeries; createdOrders: number }>('/api/order-series', {
       method: 'POST',
       body: input,
+    }),
+
+  /** Weitere Termine für eine Serie ohne festes Enddatum erzeugen (+1 Jahr). */
+  extend: (id: number) =>
+    request<{ series: OrderSeries; createdOrders: number }>(`/api/order-series/${id}/extend`, {
+      method: 'POST',
     }),
 
   remove: (id: number) => request<{ ok: true }>(`/api/order-series/${id}`, { method: 'DELETE' }),

@@ -21,7 +21,7 @@ import { z } from 'zod';
 import { db, now } from '../db/index.js';
 import { asyncHandler, badRequest, notFound, validate } from '../lib/http.js';
 import { requireAdmin, requireAuth } from '../middleware/auth.js';
-import { ORDER_TYPES } from './orders.js';
+import { ORDER_TYPES, syncShiftsForOrder } from './orders.js';
 
 export const orderSeriesRouter = express.Router();
 
@@ -48,12 +48,19 @@ const seriesSchema = z
     // Monat von startDate).
     weekdays: z.array(z.number().int().min(0).max(6)).optional(),
     startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Datum im Format JJJJ-MM-TT'),
-    endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Datum im Format JJJJ-MM-TT'),
+    // Fehlt endDate, läuft die Serie ohne festes Enddatum ("bis auf
+    // Weiteres") – es wird automatisch ein Terminhorizont von einem Jahr
+    // erzeugt, der sich später über /extend beliebig verlängern lässt.
+    endDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, 'Datum im Format JJJJ-MM-TT')
+      .optional()
+      .nullable(),
     startTime: z.string().regex(/^\d{2}:\d{2}$/, 'Uhrzeit im Format HH:MM').optional().nullable(),
     endTime: z.string().regex(/^\d{2}:\d{2}$/, 'Uhrzeit im Format HH:MM').optional().nullable(),
     assigneeIds: z.array(z.number().int().positive()).optional(),
   })
-  .refine((data) => data.endDate >= data.startDate, {
+  .refine((data) => !data.endDate || data.endDate >= data.startDate, {
     message: 'Das Enddatum muss nach dem Startdatum liegen',
     path: ['endDate'],
   })
@@ -62,50 +69,70 @@ const seriesSchema = z
     path: ['weekdays'],
   });
 
-/** Erzeugt die Liste der Termin-Daten (YYYY-MM-DD) für eine Serie. */
-function generateDates({ intervalType, weekdays, startDate, endDate }) {
-  const start = new Date(`${startDate}T00:00:00Z`);
+/** Ein Jahr in Tagen – Standard-Terminhorizont für Serien ohne Enddatum. */
+const OPEN_ENDED_HORIZON_DAYS = 365;
+
+/** Datum als 'YYYY-MM-DD' plus n Tage, ohne Zeitzonen-Verschiebung. */
+function addDays(dateStr, days) {
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Erzeugt die Liste der Termin-Daten (YYYY-MM-DD) für eine Serie.
+ *
+ * `from` grenzt nur ein, AB WANN neue Termine erzeugt werden (wichtig beim
+ * Verlängern einer laufenden Serie, damit keine bereits vorhandenen Termine
+ * doppelt entstehen) – die Wochentags-/Monatstag-Logik bleibt aber immer an
+ * `startDate` ausgerichtet, damit z. B. der 14-tägige Rhythmus nicht aus dem
+ * Takt gerät, nur weil man ab einem späteren Datum weiterzählt.
+ */
+function generateDates({ intervalType, weekdays, startDate, endDate, from }) {
+  const referenceStart = new Date(`${startDate}T00:00:00Z`);
+  const iterStart = from ? new Date(`${from}T00:00:00Z`) : referenceStart;
   const end = new Date(`${endDate}T00:00:00Z`);
 
-  if ((end - start) / (1000 * 60 * 60 * 24) > MAX_HORIZON_DAYS) {
+  if ((end - iterStart) / (1000 * 60 * 60 * 24) > MAX_HORIZON_DAYS) {
     throw badRequest(`Der Zeitraum darf maximal ${MAX_HORIZON_DAYS} Tage umfassen.`);
   }
 
   const dates = [];
 
   if (intervalType === 'MONTHLY') {
-    const dayOfMonth = start.getUTCDate();
-    const cursor = new Date(start);
+    const dayOfMonth = referenceStart.getUTCDate();
+    const stepMonth = (d) => {
+      const next = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1));
+      const daysInNext = new Date(Date.UTC(next.getUTCFullYear(), next.getUTCMonth() + 1, 0)).getUTCDate();
+      next.setUTCDate(Math.min(dayOfMonth, daysInNext));
+      return next;
+    };
+    let cursor = new Date(referenceStart);
+    // Von referenceStart aus monatsweise vorspulen, bis wir bei/nach iterStart sind
+    // (relevant beim Verlängern, wo iterStart weit nach referenceStart liegt).
+    while (cursor < iterStart) {
+      cursor = stepMonth(cursor);
+    }
     while (cursor <= end && dates.length < MAX_OCCURRENCES) {
       dates.push(cursor.toISOString().slice(0, 10));
-      // Auf den nächsten Monat springen, dabei Überlauf bei kurzen Monaten
-      // (z. B. 31. Januar -> kein 31. Februar) sauber auf den Monatsletzten legen.
-      const nextMonth = new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth() + 1, 1));
-      const daysInNextMonth = new Date(
-        Date.UTC(nextMonth.getUTCFullYear(), nextMonth.getUTCMonth() + 1, 0)
-      ).getUTCDate();
-      nextMonth.setUTCDate(Math.min(dayOfMonth, daysInNextMonth));
-      cursor.setTime(nextMonth.getTime());
+      cursor = stepMonth(cursor);
     }
     return dates;
   }
 
   // WEEKLY / BIWEEKLY mit einem oder mehreren Wochentagen: Tag für Tag von
-  // startDate bis endDate durchgehen (bei max. 2 Jahren Zeitraum sind das
-  // höchstens ~730 Prüfungen – vernachlässigbar) und jeden Tag aufnehmen,
-  // dessen Wochentag in der Auswahl ist. Bei BIWEEKLY zusätzlich nur jede
-  // zweite Woche, gezählt ab der Woche von startDate, damit alle gewählten
-  // Wochentage synchron im gleichen Rhythmus bleiben (kein Auseinanderdriften
-  // zwischen z. B. Montag und Donnerstag).
+  // iterStart bis endDate durchgehen und jeden Tag aufnehmen, dessen
+  // Wochentag in der Auswahl ist. Bei BIWEEKLY zusätzlich nur jede zweite
+  // Woche, gezählt ab der Woche von referenceStart (nicht iterStart!), damit
+  // der Rhythmus über Verlängerungen hinweg synchron bleibt.
   const weekdaySet = new Set(weekdays);
   // JS: getUTCDay() 0=Sonntag..6=Samstag → auf unser Schema 0=Montag..6=Sonntag umrechnen
   const jsToOurWeekday = (d) => (d.getUTCDay() + 6) % 7;
 
-  // Beginn der Kalenderwoche (Montag) von startDate, als Referenz für BIWEEKLY.
-  const startWeekMonday = new Date(start);
+  const startWeekMonday = new Date(referenceStart);
   startWeekMonday.setUTCDate(startWeekMonday.getUTCDate() - jsToOurWeekday(startWeekMonday));
 
-  const cursor = new Date(start);
+  const cursor = new Date(iterStart);
   while (cursor <= end && dates.length < MAX_OCCURRENCES) {
     if (weekdaySet.has(jsToOurWeekday(cursor))) {
       let include = true;
@@ -139,7 +166,10 @@ function mapSeries(row) {
     startTime: row.start_time,
     endTime: row.end_time,
     startDate: row.start_date,
+    // Bei offenen Serien ist end_date nur der aktuelle, technische Horizont –
+    // das Frontend zeigt hier "kein Enddatum" statt des Rohwerts an.
     endDate: row.end_date,
+    openEnded: Boolean(row.open_ended),
     createdAt: row.created_at,
     occurrenceCount: db
       .prepare('SELECT COUNT(*) AS c FROM orders WHERE series_id = ?')
@@ -156,24 +186,43 @@ orderSeriesRouter.get(
   })
 );
 
+orderSeriesRouter.get(
+  '/:id',
+  asyncHandler(async (req, res) => {
+    const row = db.prepare('SELECT * FROM order_series WHERE id = ?').get(Number(req.params.id));
+    if (!row) throw notFound('Serie nicht gefunden');
+    res.json({ series: mapSeries(row) });
+  })
+);
+
 // ── Anlegen: erzeugt sofort alle Einzeltermine als Aufträge ─────────────────
 orderSeriesRouter.post(
   '/',
   asyncHandler(async (req, res) => {
     const data = validate(seriesSchema, req.body);
-    const dates = generateDates(data);
+
+    // Kein Enddatum angegeben = "läuft bis auf Weiteres". Wir erzeugen dafür
+    // konkret Termine für ein Jahr im Voraus; die Serie lässt sich danach
+    // jederzeit über "Weitere Termine anlegen" (POST .../extend) fortsetzen.
+    const openEnded = !data.endDate;
+    const effectiveEndDate = data.endDate || addDays(data.startDate, OPEN_ENDED_HORIZON_DAYS);
+
+    const dates = generateDates({ ...data, endDate: effectiveEndDate });
 
     if (dates.length === 0) {
       throw badRequest('Im gewählten Zeitraum liegt kein passender Termin.');
     }
+
+    const assigneeIdList = [...new Set(data.assigneeIds ?? [])];
 
     const result = db.transaction(() => {
       const seriesInfo = db
         .prepare(
           `INSERT INTO order_series
              (customer_id, customer_name, address, contact_phone, order_type, subtype, notes,
-              interval_type, weekdays, start_time, end_time, start_date, end_date, created_by)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+              interval_type, weekdays, start_time, end_time, start_date, end_date, open_ended,
+              assignee_ids, created_by)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         )
         .run(
           data.customerId ?? null,
@@ -188,7 +237,9 @@ orderSeriesRouter.post(
           data.startTime ?? null,
           data.endTime ?? null,
           data.startDate,
-          data.endDate,
+          effectiveEndDate,
+          openEnded ? 1 : 0,
+          assigneeIdList.length ? assigneeIdList.join(',') : null,
           req.user.id
         );
       const seriesId = Number(seriesInfo.lastInsertRowid);
@@ -228,6 +279,7 @@ orderSeriesRouter.post(
         for (const userId of new Set(data.assigneeIds ?? [])) {
           insertAssignment.run(orderId, userId);
         }
+        syncShiftsForOrder(orderId, req.user.id);
         createdOrderIds.push(orderId);
       }
 
@@ -236,6 +288,91 @@ orderSeriesRouter.post(
 
     const series = db.prepare('SELECT * FROM order_series WHERE id = ?').get(result.seriesId);
     res.status(201).json({ series: mapSeries(series), createdOrders: result.createdOrderIds.length });
+  })
+);
+
+// ── Verlängern: weitere Termine für eine offene Serie erzeugen ─────────────
+// Nur für Serien ohne festes Enddatum gedacht. Erzeugt Termine für ein
+// weiteres Jahr ab dem aktuellen Terminhorizont, im selben Rhythmus wie bei
+// der Anlage, inklusive der ursprünglich zugewiesenen Mitarbeiter.
+orderSeriesRouter.post(
+  '/:id/extend',
+  asyncHandler(async (req, res) => {
+    const id = Number(req.params.id);
+    const series = db.prepare('SELECT * FROM order_series WHERE id = ?').get(id);
+    if (!series) throw notFound('Serie nicht gefunden');
+    if (!series.open_ended) {
+      throw badRequest('Nur Serien ohne festes Enddatum lassen sich auf diese Weise verlängern.');
+    }
+
+    const newHorizon = addDays(series.end_date, OPEN_ENDED_HORIZON_DAYS);
+    const dates = generateDates({
+      intervalType: series.interval_type,
+      weekdays: series.weekdays ? series.weekdays.split(',').map(Number) : [],
+      startDate: series.start_date,
+      endDate: newHorizon,
+      from: addDays(series.end_date, 1),
+    });
+
+    if (dates.length === 0) {
+      // Kein neuer Termin im erweiterten Zeitraum (z. B. bei sehr seltenem
+      // Rhythmus) – Horizont trotzdem fortschreiben, damit der nächste
+      // Verlängerungs-Versuch weiterkommt, statt hier hängen zu bleiben.
+      db.prepare('UPDATE order_series SET end_date = ? WHERE id = ?').run(newHorizon, id);
+      return res.json({ series: mapSeries({ ...series, end_date: newHorizon }), createdOrders: 0 });
+    }
+
+    const assigneeIdList = series.assignee_ids
+      ? series.assignee_ids.split(',').map(Number)
+      : [];
+
+    const result = db.transaction(() => {
+      const insertOrder = db.prepare(
+        `INSERT INTO orders
+           (customer_name, address, contact_phone, customer_id, series_id, order_type, subtype, status,
+            scheduled_date, start_time, end_time, notes, created_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'OFFEN', ?, ?, ?, ?, ?)`
+      );
+      const insertHistory = db.prepare(
+        `INSERT INTO order_status_history (order_id, from_status, to_status, changed_by)
+         VALUES (?, NULL, 'OFFEN', ?)`
+      );
+      const insertAssignment = db.prepare(
+        'INSERT INTO order_assignments (order_id, user_id) VALUES (?, ?)'
+      );
+
+      const createdOrderIds = [];
+      for (const date of dates) {
+        const info = insertOrder.run(
+          series.customer_name,
+          series.address,
+          series.contact_phone,
+          series.customer_id,
+          id,
+          series.order_type,
+          series.subtype,
+          date,
+          series.start_time,
+          series.end_time,
+          series.notes,
+          req.user.id
+        );
+        const orderId = Number(info.lastInsertRowid);
+        insertHistory.run(orderId, req.user.id);
+        for (const userId of assigneeIdList) {
+          insertAssignment.run(orderId, userId);
+        }
+        syncShiftsForOrder(orderId, req.user.id);
+        createdOrderIds.push(orderId);
+      }
+
+      db.prepare('UPDATE order_series SET end_date = ? WHERE id = ?').run(newHorizon, id);
+
+      return createdOrderIds;
+    })();
+
+    const updated = db.prepare('SELECT * FROM order_series WHERE id = ?').get(id);
+    res.json({ series: mapSeries(updated), createdOrders: result.length });
   })
 );
 
@@ -269,6 +406,8 @@ orderSeriesRouter.delete(
       for (const order of affected) {
         updateStatus.run(now(), order.id);
         insertHistory.run(order.id, order.status, req.user.id);
+        // Storniert -> kein Einsatz mehr an diesem Tag, Dienstplan-Eintrag entfernen.
+        syncShiftsForOrder(order.id, req.user.id);
       }
 
       // Die Serie selbst löschen – bereits erzeugte Aufträge bleiben über

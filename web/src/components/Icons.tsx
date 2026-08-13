@@ -47,6 +47,16 @@ export const IconCalendar = ({ size = 24, className }: IconProps) => (
   </svg>
 );
 
+/** Kreisender Pfeil – kennzeichnet wiederkehrende Aufträge/Serien. */
+export const IconRepeat = ({ size = 24, className }: IconProps) => (
+  <svg {...base(size)} className={className}>
+    <path d="M17 2l4 4-4 4" />
+    <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+    <path d="M7 22l-4-4 4-4" />
+    <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+  </svg>
+);
+
 export const IconTeam = ({ size = 24, className }: IconProps) => (
   <svg {...base(size)} className={className}>
     <circle cx="9" cy="8" r="3.2" />
