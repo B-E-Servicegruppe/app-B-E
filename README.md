@@ -146,6 +146,12 @@ Geprüft wird das automatisiert (siehe [Tests](#tests)).
 - Serie beenden (`DELETE /api/order-series/:id`) storniert nur die noch
   offenen zukünftigen Termine – erledigte und laufende bleiben als echte
   Arbeitshistorie unangetastet
+- **Vertretung für Zeitraum** (in der Serienansicht): besetzt alle Termine
+  der Serie zwischen zwei Daten auf einen oder mehrere andere Mitarbeiter um
+  (`POST /api/order-series/:id/reassign`) – gedacht für Urlaub oder
+  Krankheit. Termine vor und nach dem Zeitraum bleiben unangetastet, die
+  ursprüngliche Zuweisung gilt dort automatisch weiter; der Dienstplan zieht
+  sofort nach
 
 ### Kunden & Objekte (nur Administration)
 - Wiederverwendbare Stammdaten unter „Kunden": Name, Adresse, Telefon, Notizen
@@ -191,7 +197,34 @@ Geprüft wird das automatisiert (siehe [Tests](#tests)).
   Dienstplan zusätzlich eingeplant werden soll, wird am besten direkt dem
   Auftrag zugewiesen. Freie Einträge ohne Auftragsbezug bleiben unangetastet
 - Mitarbeiter: sieht ausschließlich die eigene Einteilung, ohne Bearbeitung
-- Farbliche Kennzeichnung wahlweise nach Auftragsart oder Status
+- Farbliche Kennzeichnung wahlweise nach Auftragsart oder Status; genehmigter
+  Urlaub erscheint in einer eigenen Farbe mit Legenden-Eintrag (siehe
+  „Urlaub")
+
+### Urlaub
+- Eigener Menüpunkt „Urlaub" für beide Rollen
+- **Mitarbeiter:** stellen Anträge mit Zeitraum und optionaler Anmerkung –
+  der Server zählt automatisch nur Arbeitstage (Mo–Fr), reine
+  Wochenend-Zeiträume werden abgelehnt. Eigene Anträge samt Status
+  (offen / genehmigt / abgelehnt, inkl. Ablehnungs-Begründung) sind
+  jederzeit einsehbar; offene Anträge lassen sich zurückziehen
+- **Administration:** genehmigt oder lehnt ab (mit Begründung, die der
+  Mitarbeiter sieht). Ein rotes Abzeichen am Menüpunkt zeigt die Anzahl
+  offener Anträge. Genehmigten Urlaub kann nur die Administration
+  widerrufen – die Urlaubs-Einträge verschwinden dann wieder aus dem Plan
+- **Automatische Dienstplan-Einträge:** Eine Genehmigung erzeugt für jeden
+  Werktag des Zeitraums einen Urlaubs-Eintrag im Dienstplan
+  (`shifts.kind = 'LEAVE'`) – sichtbar für die Administration und den
+  betroffenen Mitarbeiter, in eigener Farbe
+- **Jahres-Kontingente:** Je Mitarbeiter und Jahr pflegt die Administration
+  ein Kontingent (auch halbe Tage). Der Verbrauch wird nicht gespeichert,
+  sondern immer live aus den genehmigten Anträgen berechnet – Kontingent,
+  genommene und verbleibende Tage stehen in einer Übersicht
+- Hinweis: Die Genehmigung prüft bewusst nicht gegen das Kontingent
+  (Überschreitung ist möglich und in der Übersicht als negativer Restwert
+  sichtbar) und löst Auftrags-Zuweisungen im Urlaubszeitraum nicht
+  automatisch auf – dafür gibt es die Serien-Vertretung (siehe
+  „Wiederkehrende Aufträge")
 
 ### Mitarbeiterverwaltung (nur Administration)
 - Liste aller Konten mit Status (aktiv / deaktiviert)
@@ -237,7 +270,9 @@ vorhandene Daten bleiben dabei unverändert.
 | `order_files` | Hochgeladene PDFs/Bilder: `ATTACHMENT` (vom Admin) oder `PROOF_PHOTO` (Nachweis vom Mitarbeiter) |
 | `order_status_history` | Lückenlose Statushistorie: von → nach, wer, wann |
 | `order_comments` | Rückmeldungen zwischen Mitarbeiter und Administration |
-| `shifts` | Dienstplan-Einträge: Mitarbeiter, Datum, Zeitfenster, optional mit Auftrag verknüpft. Auftragsgebundene Einträge werden automatisch mit Termin, Status und Zuweisungen des Auftrags synchron gehalten (`syncShiftsForOrder` in `server/src/routes/orders.js`); freie Einträge (Urlaub, Werkstatt …) verwaltet die Administration von Hand |
+| `leave_requests` | Urlaubsanträge: Zeitraum, serverseitig gezählte Arbeitstage, Status (offen/genehmigt/abgelehnt), Entscheidung mit Begründung und Zeitstempel |
+| `leave_allowances` | Jährliches Urlaubskontingent je Mitarbeiter; der Verbrauch wird live aus den genehmigten Anträgen berechnet, nie gespeichert |
+| `shifts` | Dienstplan-Einträge: Mitarbeiter, Datum, Zeitfenster, optional mit Auftrag verknüpft; `kind` unterscheidet normale Einsätze (`WORK`) von automatisch erzeugten Urlaubs-Einträgen (`LEAVE`, mit Verweis auf den Antrag). Auftragsgebundene Einträge werden automatisch mit Termin, Status und Zuweisungen des Auftrags synchron gehalten (`syncShiftsForOrder` in `server/src/routes/orders.js`); freie Einträge (Werkstatt, Bereitschaft …) verwaltet die Administration von Hand |
 
 Ein Auftrag kann mehreren Mitarbeitern zugewiesen sein und ein Mitarbeiter
 mehreren Aufträgen. Genau über `order_assignments` entscheidet der Server, ob
@@ -261,7 +296,7 @@ der Datenbank stehen nur die Metadaten. Ausgeliefert werden sie ausschließlich
 │   │   ├── db/              Datenbankverbindung, Schema, Testdaten
 │   │   ├── lib/             Sicherheit (Hashing/JWT), HTTP-Helfer, E-Mail
 │   │   ├── middleware/      Anmeldung und Rechte, Uploads, Fehlerbehandlung
-│   │   └── routes/          auth, orders, order-series, customers, shifts, users, files
+│   │   └── routes/          auth, orders, order-series, customers, shifts, leave, users, files
 │   ├── test/                automatischer API- und Sicherheitstest
 │   ├── data/                SQLite-Datei (wird automatisch angelegt)
 │   └── uploads/             hochgeladene PDFs und Bilder
