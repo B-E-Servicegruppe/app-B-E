@@ -217,6 +217,44 @@ CREATE TABLE IF NOT EXISTS order_comments (
 CREATE INDEX IF NOT EXISTS idx_comments_order ON order_comments(order_id);
 
 -- -----------------------------------------------------------------------------
+-- URLAUB
+-- -----------------------------------------------------------------------------
+-- Ein Mitarbeiter stellt einen Antrag (PENDING). Die Administration bestätigt
+-- oder lehnt ihn ab. Bei Bestätigung erzeugt der Server automatisch
+-- Dienstplan-Einträge (shifts.kind = 'LEAVE') für den Zeitraum – sichtbar bei
+-- der Administration UND beim betroffenen Mitarbeiter.
+--
+-- Der Verbrauch (wie viele Tage schon genommen) wird bewusst NICHT als eigene
+-- Zahl gespeichert, sondern immer aus den genehmigten Anträgen berechnet
+-- (SUM der days_count je Jahr) – so kann er nie aus dem Takt geraten.
+CREATE TABLE IF NOT EXISTS leave_requests (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  start_date    TEXT    NOT NULL,          -- 'YYYY-MM-DD'
+  end_date      TEXT    NOT NULL,          -- 'YYYY-MM-DD'
+  -- Arbeitstage (Mo–Fr) im Zeitraum, serverseitig berechnet – Wochenenden
+  -- zählen bewusst nicht als Urlaubstag.
+  days_count    REAL    NOT NULL,
+  reason        TEXT,
+  status        TEXT    NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED')),
+  decision_note TEXT,
+  decided_by    INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  decided_at    TEXT,
+  created_at    TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+CREATE INDEX IF NOT EXISTS idx_leave_requests_user ON leave_requests(user_id);
+CREATE INDEX IF NOT EXISTS idx_leave_requests_status ON leave_requests(status);
+
+-- Jährliches Urlaubskontingent je Mitarbeiter (von der Administration
+-- gepflegt). Kein Eintrag für ein Jahr = 0 Tage Kontingent.
+CREATE TABLE IF NOT EXISTS leave_allowances (
+  user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  year       INTEGER NOT NULL,
+  days_total REAL    NOT NULL DEFAULT 0,
+  PRIMARY KEY (user_id, year)
+);
+
+-- -----------------------------------------------------------------------------
 -- DIENSTPLAN
 -- -----------------------------------------------------------------------------
 -- Ein Eintrag = ein Mitarbeiter an einem Tag in einem Zeitfenster.
@@ -232,6 +270,10 @@ CREATE TABLE IF NOT EXISTS shifts (
   end_time   TEXT,                         -- 'HH:MM'
   title      TEXT,                         -- freier Titel, falls kein Auftrag
   note       TEXT,
+  -- WORK = normaler Einsatz (Auftrag oder freier Eintrag),
+  -- LEAVE = automatisch aus einem genehmigten Urlaubsantrag erzeugt.
+  kind             TEXT NOT NULL DEFAULT 'WORK' CHECK (kind IN ('WORK', 'LEAVE')),
+  leave_request_id INTEGER REFERENCES leave_requests(id) ON DELETE CASCADE,
   created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
   created_at TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   updated_at TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))

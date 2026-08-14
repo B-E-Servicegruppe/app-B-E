@@ -38,6 +38,9 @@
   --type-abriss: #e5673f;
   --type-winterdienst: #5c7cfa;
   --type-entruempelung: #a067c9;
+  /* Eigene Farbe für Urlaubseinträge im Dienstplan – bewusst nicht mit einer
+     Auftragsart-Farbe geteilt, damit "Urlaub" auf einen Blick erkennbar ist. */
+  --leave: #f0a53c;
 
   /* ── Neutrale Töne ────────────────────────────────────────────────────── */
   --white: #ffffff;

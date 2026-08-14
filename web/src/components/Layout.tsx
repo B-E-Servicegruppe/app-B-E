@@ -8,14 +8,16 @@
  * ausschließlich "Meine Aufträge" und "Dienstplan".
  */
 import { NavLink, useNavigate } from 'react-router-dom';
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useAuth } from '../auth/AuthContext';
+import { leaveApi } from '../api/client';
 import {
   IconCalendar,
   IconDashboard,
   IconLogout,
   IconMapPin,
   IconOrders,
+  IconSun,
   IconTeam,
   IconUser,
 } from './Icons';
@@ -33,6 +35,7 @@ const ADMIN_NAV: NavItem[] = [
   { to: '/dashboard', label: 'Übersicht', shortLabel: 'Übersicht', icon: IconDashboard },
   { to: '/auftraege', label: 'Aufträge', shortLabel: 'Aufträge', icon: IconOrders },
   { to: '/dienstplan', label: 'Dienstplan', shortLabel: 'Plan', icon: IconCalendar },
+  { to: '/urlaub', label: 'Urlaub', shortLabel: 'Urlaub', icon: IconSun },
   { to: '/kunden', label: 'Kunden', shortLabel: 'Kunden', icon: IconMapPin },
   { to: '/mitarbeiter', label: 'Mitarbeiter', shortLabel: 'Team', icon: IconTeam },
 ];
@@ -40,12 +43,25 @@ const ADMIN_NAV: NavItem[] = [
 const EMPLOYEE_NAV: NavItem[] = [
   { to: '/meine-auftraege', label: 'Meine Aufträge', shortLabel: 'Aufträge', icon: IconOrders },
   { to: '/dienstplan', label: 'Mein Dienstplan', shortLabel: 'Plan', icon: IconCalendar },
+  { to: '/urlaub', label: 'Urlaub', shortLabel: 'Urlaub', icon: IconSun },
 ];
 
 export function Layout({ children }: { children: ReactNode }) {
   const { user, isAdmin, logout } = useAuth();
   const navigate = useNavigate();
   const navItems = isAdmin ? ADMIN_NAV : EMPLOYEE_NAV;
+
+  // Anzahl offener Urlaubsanträge als kleines Abzeichen am Nav-Punkt – das
+  // ist die "Nachricht" für die Administration, ganz ohne eigenes
+  // Benachrichtigungssystem zu bauen: der Punkt ist ohnehin immer sichtbar.
+  const [pendingLeaveCount, setPendingLeaveCount] = useState(0);
+  useEffect(() => {
+    if (!isAdmin) return;
+    leaveApi
+      .list('PENDING')
+      .then((requests) => setPendingLeaveCount(requests.length))
+      .catch(() => undefined);
+  }, [isAdmin]);
 
   const handleLogout = () => {
     logout();
@@ -75,6 +91,9 @@ export function Layout({ children }: { children: ReactNode }) {
               >
                 <item.icon size={18} />
                 <span>{item.label}</span>
+                {item.to === '/urlaub' && isAdmin && pendingLeaveCount > 0 && (
+                  <span className="nav-badge">{pendingLeaveCount}</span>
+                )}
               </NavLink>
             ))}
           </nav>
@@ -108,6 +127,9 @@ export function Layout({ children }: { children: ReactNode }) {
           >
             <item.icon size={22} />
             <span>{item.shortLabel}</span>
+            {item.to === '/urlaub' && isAdmin && pendingLeaveCount > 0 && (
+              <span className="nav-badge nav-badge--tabbar">{pendingLeaveCount}</span>
+            )}
           </NavLink>
         ))}
         <NavLink

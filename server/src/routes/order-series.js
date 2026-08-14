@@ -377,6 +377,61 @@ orderSeriesRouter.post(
 );
 
 // ── Beenden: storniert alle noch offenen zukünftigen Termine ────────────────
+// ── Vertretung: Mitarbeiter für einen Zeitraum umbesetzen ───────────────────
+// Gedacht für Urlaub/Krankheit: statt jeden einzelnen Termin von Hand
+// umzubesetzen, wählt man einen Zeitraum + Ersatz-Mitarbeiter – alle
+// betroffenen Termine dieser Serie werden auf einmal umbesetzt. Termine vor
+// und nach dem Zeitraum bleiben unangetastet (der ursprüngliche Mitarbeiter
+// ist dort also automatisch weiterhin zuständig, ganz ohne Rückumstellung).
+const reassignSchema = z
+  .object({
+    fromDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Datum im Format JJJJ-MM-TT'),
+    toDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Datum im Format JJJJ-MM-TT'),
+    assigneeIds: z.array(z.number().int().positive()).min(1, 'Bitte mindestens einen Mitarbeiter wählen'),
+  })
+  .refine((data) => data.toDate >= data.fromDate, {
+    message: 'Das Enddatum muss nach dem Startdatum liegen',
+    path: ['toDate'],
+  });
+
+orderSeriesRouter.post(
+  '/:id/reassign',
+  asyncHandler(async (req, res) => {
+    const id = Number(req.params.id);
+    const series = db.prepare('SELECT * FROM order_series WHERE id = ?').get(id);
+    if (!series) throw notFound('Serie nicht gefunden');
+
+    const { fromDate, toDate, assigneeIds } = validate(reassignSchema, req.body);
+
+    const affected = db
+      .prepare(
+        `SELECT id FROM orders
+           WHERE series_id = ? AND status != 'STORNIERT'
+             AND scheduled_date IS NOT NULL AND scheduled_date BETWEEN ? AND ?`
+      )
+      .all(id, fromDate, toDate);
+
+    db.transaction(() => {
+      const deleteAssignments = db.prepare('DELETE FROM order_assignments WHERE order_id = ?');
+      const insertAssignment = db.prepare(
+        'INSERT INTO order_assignments (order_id, user_id) VALUES (?, ?)'
+      );
+      for (const order of affected) {
+        deleteAssignments.run(order.id);
+        for (const userId of new Set(assigneeIds)) {
+          insertAssignment.run(order.id, userId);
+        }
+        // Dienstplan sofort nachziehen – Vertretung erscheint automatisch bei
+        // der Administration und beim neu eingeteilten Mitarbeiter, während
+        // sie beim ursprünglichen Mitarbeiter verschwindet.
+        syncShiftsForOrder(order.id, req.user.id);
+      }
+    })();
+
+    res.json({ updated: affected.length });
+  })
+);
+
 orderSeriesRouter.delete(
   '/:id',
   asyncHandler(async (req, res) => {

@@ -47,6 +47,7 @@ function mapShift(row) {
     endTime: row.end_time,
     title: row.title,
     note: row.note,
+    kind: row.kind,
     order: row.order_id
       ? {
           id: row.order_id,

@@ -86,6 +86,15 @@ function migrateAddColumns() {
   // "no such column" fehlschlagen. IF NOT EXISTS macht den Aufruf idempotent.
   db.exec('CREATE INDEX IF NOT EXISTS idx_orders_customer ON orders(customer_id)');
   db.exec('CREATE INDEX IF NOT EXISTS idx_orders_series ON orders(series_id)');
+
+  // shifts: kind/leave_request_id kamen mit der Urlaubsverwaltung hinzu.
+  const shiftColumns = db.prepare('PRAGMA table_info(shifts)').all().map((c) => c.name);
+  if (!shiftColumns.includes('kind')) {
+    db.exec("ALTER TABLE shifts ADD COLUMN kind TEXT NOT NULL DEFAULT 'WORK'");
+  }
+  if (!shiftColumns.includes('leave_request_id')) {
+    db.exec('ALTER TABLE shifts ADD COLUMN leave_request_id INTEGER REFERENCES leave_requests(id) ON DELETE CASCADE');
+  }
 }
 
 /**

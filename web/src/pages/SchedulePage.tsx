@@ -100,6 +100,7 @@ export function SchedulePage() {
 
   /** Farbe eines Eintrags je nach gewähltem Modus. */
   const shiftColor = (shift: Shift): string => {
+    if (shift.kind === 'LEAVE') return 'var(--leave)';
     if (!shift.order) return 'var(--text-muted)';
     return colorMode === 'type'
       ? TYPE_COLOR[shift.order.orderType]
@@ -262,6 +263,10 @@ export function SchedulePage() {
                 {label}
               </span>
             ))}
+        <span className="legend__item">
+          <span className="legend__dot" style={{ background: 'var(--leave)' }} />
+          Urlaub
+        </span>
       </div>
 
       {/* ── Kalender ────────────────────────────────────────────────────── */}

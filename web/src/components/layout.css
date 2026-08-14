@@ -63,6 +63,7 @@
 }
 
 .app-nav__link {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -74,6 +75,28 @@
   font-size: 0.9375rem;
   text-decoration: none;
   transition: background 0.15s ease, color 0.15s ease;
+}
+
+/* Kleiner Zähler für offene Urlaubsanträge – die "Nachricht" an die
+   Administration, ohne dass dafür ein eigenes Postfach nötig wäre. */
+.nav-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #ef4444;
+  color: var(--white);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1;
+}
+.nav-badge--tabbar {
+  position: absolute;
+  top: 2px;
+  right: calc(50% - 22px);
 }
 .app-nav__link:hover {
   background: rgba(255, 255, 255, 0.1);
@@ -180,6 +203,7 @@
 }
 
 .tabbar__item {
+  position: relative;
   flex: 1;
   display: flex;
   flex-direction: column;

@@ -15,6 +15,10 @@ import type {
   AssignableUser,
   Customer,
   CustomerInput,
+  LeaveAllowanceEntry,
+  LeaveRequest,
+  LeaveRequestInput,
+  LeaveStatus,
   OrderDetail,
   OrderFile,
   OrderInput,
@@ -365,5 +369,44 @@ export const orderSeriesApi = {
       method: 'POST',
     }),
 
+  /** Mitarbeiter für einen Zeitraum umbesetzen (z. B. Vertretung bei Urlaub). */
+  reassign: (id: number, input: { fromDate: string; toDate: string; assigneeIds: number[] }) =>
+    request<{ updated: number }>(`/api/order-series/${id}/reassign`, {
+      method: 'POST',
+      body: input,
+    }),
+
   remove: (id: number) => request<{ ok: true }>(`/api/order-series/${id}`, { method: 'DELETE' }),
+};
+
+// ── Urlaub ───────────────────────────────────────────────────────────────────
+export const leaveApi = {
+  list: (status?: LeaveStatus) =>
+    request<{ requests: LeaveRequest[] }>(`/api/leave/requests${query({ status })}`).then(
+      (r) => r.requests
+    ),
+
+  create: (input: LeaveRequestInput) =>
+    request<{ request: LeaveRequest }>('/api/leave/requests', { method: 'POST', body: input }).then(
+      (r) => r.request
+    ),
+
+  decide: (id: number, decision: 'APPROVED' | 'REJECTED', note?: string) =>
+    request<{ request: LeaveRequest }>(`/api/leave/requests/${id}/decision`, {
+      method: 'PATCH',
+      body: { decision, note },
+    }).then((r) => r.request),
+
+  remove: (id: number) => request<{ ok: true }>(`/api/leave/requests/${id}`, { method: 'DELETE' }),
+
+  allowances: (year?: number) =>
+    request<{ year: number; employees: LeaveAllowanceEntry[] }>(
+      `/api/leave/allowances${query({ year })}`
+    ),
+
+  setAllowance: (userId: number, year: number, daysTotal: number) =>
+    request<{ ok: true }>(`/api/leave/allowances/${userId}`, {
+      method: 'PUT',
+      body: { year, daysTotal },
+    }),
 };

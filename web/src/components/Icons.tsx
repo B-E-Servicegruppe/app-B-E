@@ -57,6 +57,24 @@ export const IconRepeat = ({ size = 24, className }: IconProps) => (
   </svg>
 );
 
+/** Sonne – kennzeichnet Urlaub. */
+export const IconSun = ({ size = 24, className }: IconProps) => (
+  <svg {...base(size)} className={className}>
+    <circle cx="12" cy="12" r="4" />
+    <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+  </svg>
+);
+
+/** Zwei gegenläufige Pfeile – kennzeichnet Umbesetzen/Vertretung. */
+export const IconSwap = ({ size = 24, className }: IconProps) => (
+  <svg {...base(size)} className={className}>
+    <path d="M16 3l4 4-4 4" />
+    <path d="M20 7H4" />
+    <path d="M8 21l-4-4 4-4" />
+    <path d="M4 17h16" />
+  </svg>
+);
+
 export const IconTeam = ({ size = 24, className }: IconProps) => (
   <svg {...base(size)} className={className}>
     <circle cx="9" cy="8" r="3.2" />

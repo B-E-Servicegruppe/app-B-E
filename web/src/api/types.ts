@@ -120,6 +120,8 @@ export interface Shift {
   endTime: string | null;
   title: string | null;
   note: string | null;
+  /** WORK = normaler Einsatz, LEAVE = automatisch aus genehmigtem Urlaubsantrag */
+  kind: 'WORK' | 'LEAVE';
   order: {
     id: number;
     customerName: string;
@@ -217,3 +219,38 @@ export interface OrderSeriesInput {
   endTime?: string | null;
   assigneeIds?: number[];
 }
+
+export type LeaveStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+export interface LeaveRequest {
+  id: number;
+  userId: number;
+  /** Nur bei Admin-Sicht befüllt */
+  userName: string | null;
+  startDate: string;
+  endDate: string;
+  /** Arbeitstage Mo–Fr im Zeitraum */
+  daysCount: number;
+  reason: string | null;
+  status: LeaveStatus;
+  decisionNote: string | null;
+  decidedBy: number | null;
+  decidedAt: string | null;
+  createdAt: string;
+}
+
+export interface LeaveRequestInput {
+  startDate: string;
+  endDate: string;
+  reason?: string | null;
+}
+
+export interface LeaveAllowanceEntry {
+  userId: number;
+  name: string;
+  active: boolean;
+  daysTotal: number;
+  daysUsed: number;
+  daysRemaining: number;
+}
+

@@ -13,7 +13,7 @@ import { ApiError, ordersApi, orderSeriesApi, usersApi } from '../api/client';
 import type { AssignableUser, OrderListItem, OrderSeries } from '../api/types';
 import { PageHeader } from '../components/Layout';
 import { OrderCard } from '../components/OrderCard';
-import { ConfirmDialog, EmptyState, ErrorMessage, Loading, Toast } from '../components/ui';
+import { ConfirmDialog, EmptyState, ErrorMessage, Loading, Modal, Toast } from '../components/ui';
 import {
   IconChevronLeft,
   IconFilter,
@@ -21,6 +21,7 @@ import {
   IconPlus,
   IconRepeat,
   IconSearch,
+  IconSwap,
   IconTrash,
 } from '../components/Icons';
 import { ORDER_STATUSES, ORDER_TYPES, STATUS_LABEL, TYPE_LABEL } from '../utils/labels';
@@ -49,6 +50,7 @@ export function OrdersPage() {
   const seriesId = searchParams.get('seriesId');
   const [seriesInfo, setSeriesInfo] = useState<OrderSeries | null>(null);
   const [seriesBusy, setSeriesBusy] = useState(false);
+  const [showReassign, setShowReassign] = useState(false);
 
   useEffect(() => {
     if (!seriesId) {
@@ -260,6 +262,10 @@ export function OrdersPage() {
             </span>
             <span className="muted small">{seriesInfo.address}</span>
             <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+              <button type="button" className="btn btn--ghost btn--sm" onClick={() => setShowReassign(true)}>
+                <IconSwap size={15} />
+                Vertretung für Zeitraum
+              </button>
               {seriesInfo.openEnded && (
                 <button type="button" className="btn btn--ghost btn--sm" onClick={extendSeries} disabled={seriesBusy}>
                   Weitere Termine anlegen
@@ -271,6 +277,20 @@ export function OrdersPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {showReassign && seriesInfo && (
+        <ReassignDialog
+          seriesId={Number(seriesId)}
+          employees={employees}
+          onClose={() => setShowReassign(false)}
+          onSaved={(updated) => {
+            setShowReassign(false);
+            setToast(`${updated} Termine wurden umbesetzt.`);
+            setLoading(true);
+            ordersApi.list({ seriesId: Number(seriesId) }).then(setOrders).finally(() => setLoading(false));
+          }}
+        />
       )}
 
       <ErrorMessage error={error} />
@@ -441,5 +461,108 @@ export function OrdersPage() {
 
       <Toast message={toast} onDone={() => setToast(null)} />
     </>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+/** Dialog: Mitarbeiter für einen Zeitraum umbesetzen (z. B. Urlaubsvertretung). */
+function ReassignDialog({
+  seriesId,
+  employees,
+  onClose,
+  onSaved,
+}: {
+  seriesId: number;
+  employees: AssignableUser[];
+  onClose: () => void;
+  onSaved: (updated: number) => void;
+}) {
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+  const [assigneeIds, setAssigneeIds] = useState<number[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const toggle = (id: number) => {
+    setAssigneeIds((current) => (current.includes(id) ? current.filter((x) => x !== id) : [...current, id]));
+  };
+
+  const submit = async () => {
+    setError(null);
+    if (!fromDate || !toDate) {
+      setError('Bitte Zeitraum angeben.');
+      return;
+    }
+    if (assigneeIds.length === 0) {
+      setError('Bitte mindestens einen Mitarbeiter wählen.');
+      return;
+    }
+    setBusy(true);
+    try {
+      const result = await orderSeriesApi.reassign(seriesId, { fromDate, toDate, assigneeIds });
+      onSaved(result.updated);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Umbesetzen nicht möglich.');
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal
+      open
+      title="Vertretung für Zeitraum"
+      onClose={onClose}
+      footer={
+        <>
+          <button type="button" className="btn btn--ghost" onClick={onClose} disabled={busy}>
+            Abbrechen
+          </button>
+          <button type="button" className="btn" onClick={submit} disabled={busy}>
+            {busy ? 'Wird umbesetzt …' : 'Umbesetzen'}
+          </button>
+        </>
+      }
+    >
+      <ErrorMessage error={error} />
+      <p className="muted small" style={{ marginTop: -4, marginBottom: 16 }}>
+        Alle Termine dieser Serie im gewählten Zeitraum werden dem/den ausgewählten Mitarbeiter(n)
+        zugewiesen. Termine davor und danach bleiben unverändert – die ursprüngliche Zuweisung gilt
+        dort automatisch weiter.
+      </p>
+
+      <div className="field">
+        <label htmlFor="r-from">Von</label>
+        <input id="r-from" className="input" type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+      </div>
+      <div className="field">
+        <label htmlFor="r-to">Bis</label>
+        <input id="r-to" className="input" type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+      </div>
+
+      <div className="field" style={{ marginBottom: 0 }}>
+        <label>Vertretung durch</label>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          {employees.map((employee) => (
+            <label
+              key={employee.id}
+              className="check-item"
+              style={{
+                border: '1px solid var(--border)',
+                borderRadius: 8,
+                padding: '6px 10px',
+                background: assigneeIds.includes(employee.id) ? 'var(--accent-100)' : 'transparent',
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={assigneeIds.includes(employee.id)}
+                onChange={() => toggle(employee.id)}
+              />
+              <span>{employee.name}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+    </Modal>
   );
 }

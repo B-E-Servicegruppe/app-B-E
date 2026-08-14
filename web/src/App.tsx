@@ -26,6 +26,7 @@ import { MyOrdersPage } from './pages/MyOrdersPage';
 import { SchedulePage } from './pages/SchedulePage';
 import { EmployeesPage } from './pages/EmployeesPage';
 import { CustomersPage } from './pages/CustomersPage';
+import { LeavePage } from './pages/LeavePage';
 
 /** Leitet Nicht-Angemeldete zur Anmeldung (und merkt sich das Ziel). */
 function RequireAuth({ children }: { children: ReactNode }) {
@@ -79,6 +80,7 @@ export default function App() {
       <Route path="/meine-auftraege" element={<RequireAuth><MyOrdersPage /></RequireAuth>} />
       <Route path="/auftraege/:id" element={<RequireAuth><OrderDetailPage /></RequireAuth>} />
       <Route path="/dienstplan" element={<RequireAuth><SchedulePage /></RequireAuth>} />
+      <Route path="/urlaub" element={<RequireAuth><LeavePage /></RequireAuth>} />
       <Route path="/profil" element={<RequireAuth><ProfilePage /></RequireAuth>} />
 
       <Route path="/" element={<HomeRedirect />} />
