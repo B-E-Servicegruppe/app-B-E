@@ -217,9 +217,15 @@ Geprüft wird das automatisiert (siehe [Tests](#tests)).
   (`shifts.kind = 'LEAVE'`) – sichtbar für die Administration und den
   betroffenen Mitarbeiter, in eigener Farbe
 - **Jahres-Kontingente:** Je Mitarbeiter und Jahr pflegt die Administration
-  ein Kontingent (auch halbe Tage). Der Verbrauch wird nicht gespeichert,
+  ein Kontingent (auch halbe Tage). Der App-Verbrauch wird nicht gespeichert,
   sondern immer live aus den genehmigten Anträgen berechnet – Kontingent,
   genommene und verbleibende Tage stehen in einer Übersicht
+- **Manuell erfasste Tage:** Zusätzlich zum automatisch berechneten
+  App-Verbrauch lässt sich je Mitarbeiter und Jahr ein Wert „Manuell
+  erfasst" pflegen – für Urlaub, der vor oder außerhalb der App genommen
+  wurde (z. B. bereits verbrauchte Tage beim Umstieg auf das System).
+  Beides wird getrennt ausgewiesen („Über App" / „Manuell erfasst") und
+  gemeinsam vom Kontingent abgezogen
 - Hinweis: Die Genehmigung prüft bewusst nicht gegen das Kontingent
   (Überschreitung ist möglich und in der Übersicht als negativer Restwert
   sichtbar) und löst Auftrags-Zuweisungen im Urlaubszeitraum nicht
@@ -271,7 +277,7 @@ vorhandene Daten bleiben dabei unverändert.
 | `order_status_history` | Lückenlose Statushistorie: von → nach, wer, wann |
 | `order_comments` | Rückmeldungen zwischen Mitarbeiter und Administration |
 | `leave_requests` | Urlaubsanträge: Zeitraum, serverseitig gezählte Arbeitstage, Status (offen/genehmigt/abgelehnt), Entscheidung mit Begründung und Zeitstempel |
-| `leave_allowances` | Jährliches Urlaubskontingent je Mitarbeiter; der Verbrauch wird live aus den genehmigten Anträgen berechnet, nie gespeichert |
+| `leave_allowances` | Jährliches Urlaubskontingent je Mitarbeiter plus manuell erfasste, außerhalb der App genommene Tage (`manual_used_days`); der App-Verbrauch wird live aus den genehmigten Anträgen berechnet, nie gespeichert |
 | `shifts` | Dienstplan-Einträge: Mitarbeiter, Datum, Zeitfenster, optional mit Auftrag verknüpft; `kind` unterscheidet normale Einsätze (`WORK`) von automatisch erzeugten Urlaubs-Einträgen (`LEAVE`, mit Verweis auf den Antrag). Auftragsgebundene Einträge werden automatisch mit Termin, Status und Zuweisungen des Auftrags synchron gehalten (`syncShiftsForOrder` in `server/src/routes/orders.js`); freie Einträge (Werkstatt, Bereitschaft …) verwaltet die Administration von Hand |
 
 Ein Auftrag kann mehreren Mitarbeitern zugewiesen sein und ein Mitarbeiter
