@@ -250,6 +250,11 @@ export interface LeaveAllowanceEntry {
   name: string;
   active: boolean;
   daysTotal: number;
+  /** Über die App beantragt & genehmigt */
+  daysUsedSystem: number;
+  /** Manuell erfasst (z. B. Urlaub vor Einführung der App) */
+  daysUsedManual: number;
+  /** Summe aus beidem */
   daysUsed: number;
   daysRemaining: number;
 }

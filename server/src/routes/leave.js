@@ -240,9 +240,9 @@ leaveRouter.get(
 
     const allowanceByUser = new Map(
       db
-        .prepare('SELECT user_id, days_total FROM leave_allowances WHERE year = ?')
+        .prepare('SELECT user_id, days_total, manual_used_days FROM leave_allowances WHERE year = ?')
         .all(year)
-        .map((r) => [r.user_id, r.days_total])
+        .map((r) => [r.user_id, r])
     );
     const usedByUser = new Map(
       db
@@ -258,15 +258,22 @@ leaveRouter.get(
     res.json({
       year,
       employees: employees.map((e) => {
-        const total = allowanceByUser.get(e.id) ?? 0;
-        const used = usedByUser.get(e.id) ?? 0;
+        const allowance = allowanceByUser.get(e.id);
+        const total = allowance?.days_total ?? 0;
+        const usedSystem = usedByUser.get(e.id) ?? 0;
+        const usedManual = allowance?.manual_used_days ?? 0;
+        const usedTotal = usedSystem + usedManual;
         return {
           userId: e.id,
           name: e.name,
           active: Boolean(e.active),
           daysTotal: total,
-          daysUsed: used,
-          daysRemaining: Math.round((total - used) * 100) / 100,
+          // Über die App beantragt & genehmigt
+          daysUsedSystem: usedSystem,
+          // Manuell erfasst (z. B. Urlaub vor Einführung der App)
+          daysUsedManual: usedManual,
+          daysUsed: usedTotal,
+          daysRemaining: Math.round((total - usedTotal) * 100) / 100,
         };
       }),
     });
@@ -276,6 +283,7 @@ leaveRouter.get(
 const allowanceSchema = z.object({
   year: z.number().int().min(2000).max(2100),
   daysTotal: z.number().min(0).max(365),
+  manualUsedDays: z.number().min(0).max(365).optional(),
 });
 
 leaveRouter.put(
@@ -286,11 +294,14 @@ leaveRouter.put(
     const employee = db.prepare("SELECT id FROM users WHERE id = ? AND role = 'EMPLOYEE'").get(userId);
     if (!employee) throw notFound('Mitarbeiter nicht gefunden');
 
-    const { year, daysTotal } = validate(allowanceSchema, req.body);
+    const { year, daysTotal, manualUsedDays } = validate(allowanceSchema, req.body);
     db.prepare(
-      `INSERT INTO leave_allowances (user_id, year, days_total) VALUES (?, ?, ?)
-         ON CONFLICT (user_id, year) DO UPDATE SET days_total = excluded.days_total`
-    ).run(userId, year, daysTotal);
+      `INSERT INTO leave_allowances (user_id, year, days_total, manual_used_days)
+         VALUES (?, ?, ?, ?)
+         ON CONFLICT (user_id, year) DO UPDATE SET
+           days_total = excluded.days_total,
+           manual_used_days = excluded.manual_used_days`
+    ).run(userId, year, daysTotal, manualUsedDays ?? 0);
 
     res.json({ ok: true });
   })

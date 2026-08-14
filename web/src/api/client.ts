@@ -404,9 +404,9 @@ export const leaveApi = {
       `/api/leave/allowances${query({ year })}`
     ),
 
-  setAllowance: (userId: number, year: number, daysTotal: number) =>
+  setAllowance: (userId: number, year: number, daysTotal: number, manualUsedDays?: number) =>
     request<{ ok: true }>(`/api/leave/allowances/${userId}`, {
       method: 'PUT',
-      body: { year, daysTotal },
+      body: { year, daysTotal, manualUsedDays },
     }),
 };

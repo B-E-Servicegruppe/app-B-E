@@ -95,6 +95,13 @@ function migrateAddColumns() {
   if (!shiftColumns.includes('leave_request_id')) {
     db.exec('ALTER TABLE shifts ADD COLUMN leave_request_id INTEGER REFERENCES leave_requests(id) ON DELETE CASCADE');
   }
+
+  // leave_allowances: manual_used_days kam nachträglich hinzu (Urlaub, der
+  // vor/außerhalb der App genommen wurde und manuell erfasst werden soll).
+  const allowanceColumns = db.prepare('PRAGMA table_info(leave_allowances)').all().map((c) => c.name);
+  if (!allowanceColumns.includes('manual_used_days')) {
+    db.exec('ALTER TABLE leave_allowances ADD COLUMN manual_used_days REAL NOT NULL DEFAULT 0');
+  }
 }
 
 /**

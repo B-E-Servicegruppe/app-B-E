@@ -423,15 +423,17 @@ function AllowanceTable({
   onYearChange: (y: number) => void;
   onSaved: (message: string) => void;
 }) {
-  const [editing, setEditing] = useState<Record<number, string>>({});
+  const [editingTotal, setEditingTotal] = useState<Record<number, string>>({});
+  const [editingManual, setEditingManual] = useState<Record<number, string>>({});
   const [busyId, setBusyId] = useState<number | null>(null);
 
-  const save = async (userId: number) => {
-    const value = Number(editing[userId]);
-    if (Number.isNaN(value) || value < 0) return;
-    setBusyId(userId);
+  const save = async (entry: LeaveAllowanceEntry) => {
+    const total = Number(editingTotal[entry.userId] ?? entry.daysTotal);
+    const manual = Number(editingManual[entry.userId] ?? entry.daysUsedManual);
+    if (Number.isNaN(total) || total < 0 || Number.isNaN(manual) || manual < 0) return;
+    setBusyId(entry.userId);
     try {
-      await leaveApi.setAllowance(userId, year, value);
+      await leaveApi.setAllowance(entry.userId, year, total, manual);
       onSaved('Kontingent gespeichert.');
     } finally {
       setBusyId(null);
@@ -455,6 +457,11 @@ function AllowanceTable({
           ))}
         </select>
       </div>
+      <p className="muted small" style={{ margin: '0 20px 12px' }}>
+        "Über App" zählt automatisch aus genehmigten Anträgen. "Manuell erfasst" ist für Urlaub,
+        der außerhalb der App genommen wurde (z. B. vor der Einführung) – beides zusammen ergibt
+        den Gesamtverbrauch.
+      </p>
       <div className="card__body" style={{ overflowX: 'auto' }}>
         {entries.length === 0 ? (
           <p className="muted small">Keine Mitarbeiterkonten vorhanden.</p>
@@ -464,7 +471,8 @@ function AllowanceTable({
               <tr>
                 <th>Mitarbeiter</th>
                 <th>Kontingent {year}</th>
-                <th>Genommen</th>
+                <th>Über App</th>
+                <th>Manuell erfasst</th>
                 <th>Verbleibend</th>
                 <th />
               </tr>
@@ -480,13 +488,26 @@ function AllowanceTable({
                       min={0}
                       step={0.5}
                       style={{ maxWidth: 90 }}
-                      value={editing[entry.userId] ?? String(entry.daysTotal)}
+                      value={editingTotal[entry.userId] ?? String(entry.daysTotal)}
                       onChange={(e) =>
-                        setEditing((current) => ({ ...current, [entry.userId]: e.target.value }))
+                        setEditingTotal((current) => ({ ...current, [entry.userId]: e.target.value }))
                       }
                     />
                   </td>
-                  <td>{entry.daysUsed}</td>
+                  <td>{entry.daysUsedSystem}</td>
+                  <td>
+                    <input
+                      className="input"
+                      type="number"
+                      min={0}
+                      step={0.5}
+                      style={{ maxWidth: 90 }}
+                      value={editingManual[entry.userId] ?? String(entry.daysUsedManual)}
+                      onChange={(e) =>
+                        setEditingManual((current) => ({ ...current, [entry.userId]: e.target.value }))
+                      }
+                    />
+                  </td>
                   <td>
                     <strong>{entry.daysRemaining}</strong>
                   </td>
@@ -494,7 +515,7 @@ function AllowanceTable({
                     <button
                       type="button"
                       className="btn btn--ghost btn--sm"
-                      onClick={() => save(entry.userId)}
+                      onClick={() => save(entry)}
                       disabled={busyId === entry.userId}
                     >
                       Speichern

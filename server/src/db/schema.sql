@@ -248,9 +248,14 @@ CREATE INDEX IF NOT EXISTS idx_leave_requests_status ON leave_requests(status);
 -- Jährliches Urlaubskontingent je Mitarbeiter (von der Administration
 -- gepflegt). Kein Eintrag für ein Jahr = 0 Tage Kontingent.
 CREATE TABLE IF NOT EXISTS leave_allowances (
-  user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  year       INTEGER NOT NULL,
-  days_total REAL    NOT NULL DEFAULT 0,
+  user_id          INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  year             INTEGER NOT NULL,
+  days_total       REAL    NOT NULL DEFAULT 0,
+  -- Manuell erfasste, bereits genommene Tage – für Urlaub, der VOR oder
+  -- AUSSERHALB der App genommen wurde (z. B. schon verbrauchter Urlaub beim
+  -- Umstieg auf dieses System). Wird zum automatisch aus genehmigten
+  -- Anträgen berechneten Verbrauch addiert, ersetzt ihn aber nicht.
+  manual_used_days REAL    NOT NULL DEFAULT 0,
   PRIMARY KEY (user_id, year)
 );
 
